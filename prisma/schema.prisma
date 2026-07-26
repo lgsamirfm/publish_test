@@ -1,0 +1,86 @@
+// Prisma schema for the Persian knitting e-commerce store (بافخانه)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  password            String
+  role                String     @default("CUSTOMER")
+  phone               String?
+  address             String?
+  resetToken          String?                           // ← NEW
+  resetTokenExpiry    DateTime?                         // ← NEW
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  orders              Order[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Int
+  images      String   @default("") // comma-separated image URLs
+  variants    String   @default("[]") // JSON array of {name, color?}
+  category    String   @default("عمومی")
+  stock       Int      @default(0)
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Pattern {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Int
+  images      String   @default("") // comma-separated image URLs
+  difficulty  String   @default("متوسط") // مبتدی | متوسط | پیشرفته
+  yarnType    String   @default("")
+  needleSize  String   @default("")
+  gauge       String   @default("")
+  pdfUrl      String   @default("")
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  total         Int
+  status        String      @default("PENDING") // PENDING | PAID | SHIPPED | DELIVERED | CANCELLED
+  address       String      @default("")
+  phone         String      @default("")
+  note          String      @default("")
+  paymentMethod String      @default("") // ONLINE | COD (cash on delivery)
+  paymentStatus String      @default("UNPAID") // UNPAID | PENDING | PAID | FAILED
+  transactionId String      @default("") // simulated gateway transaction ID
+  paidAt        DateTime?   // when payment was completed
+  shippingCost  Int         @default(0) // shipping cost in toman
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemType  String  // PRODUCT | PATTERN
+  itemId    String
+  name      String
+  price     Int
+  image     String  @default("")
+  quantity  Int     @default(1)
+}
