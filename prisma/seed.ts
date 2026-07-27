@@ -13,32 +13,41 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // ── Admin user ──────────────────────────────────────────
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@bafkhaneh.ir" },
-    update: {},
-    create: {
-      name: "مدیر بافخانه",
-      email: "admin@bafkhaneh.ir",
-      password: hashPassword("admin123"),
-      role: "ADMIN",
-    },
+  let admin = await prisma.user.findFirst({
+    where: { phone: "09120000000" },
   });
-  console.log(`  ✅ Admin: ${admin.email} (password: admin123)`);
+
+  if (!admin) {
+    admin = await prisma.user.create({
+      data: {
+        name: "مدیر بافخانه",
+        phone: "09120000000",
+        email: "admin@bafkhaneh.ir",
+        password: hashPassword("admin123"),
+        role: "ADMIN",
+      },
+    });
+  }
+  console.log(`  ✅ Admin: ${admin.phone} (password: admin123)`);
 
   // ── Demo customer ───────────────────────────────────────
-  const customer = await prisma.user.upsert({
-    where: { email: "customer@test.com" },
-    update: {},
-    create: {
-      name: "مشتری تست",
-      email: "customer@test.com",
-      password: hashPassword("test123"),
-      role: "CUSTOMER",
-      phone: "09121234567",
-      address: "تهران، خیابان ولیعصر",
-    },
+  let customer = await prisma.user.findFirst({
+    where: { phone: "09121234567" },
   });
-  console.log(`  ✅ Customer: ${customer.email} (password: test123)`);
+
+  if (!customer) {
+    customer = await prisma.user.create({
+      data: {
+        name: "مشتری تست",
+        phone: "09121234567",
+        email: "customer@test.com",
+        password: hashPassword("test123"),
+        role: "CUSTOMER",
+        address: "تهران، خیابان ولیعصر",
+      },
+    });
+  }
+  console.log(`  ✅ Customer: ${customer.phone} (password: test123)`);
 
   // ── Products ────────────────────────────────────────────
   const products = [
@@ -198,9 +207,12 @@ async function main() {
   ];
 
   for (const p of products) {
-    await prisma.product.create({ data: p });
+    const existing = await prisma.product.findFirst({ where: { name: p.name } });
+    if (!existing) {
+      await prisma.product.create({ data: p });
+    }
   }
-  console.log(`  ✅ ${products.length} products created`);
+  console.log(`  ✅ ${products.length} products checked/created`);
 
   // ── Patterns ────────────────────────────────────────────
   const patterns = [
@@ -306,14 +318,17 @@ async function main() {
   ];
 
   for (const p of patterns) {
-    await prisma.pattern.create({ data: p });
+    const existing = await prisma.pattern.findFirst({ where: { title: p.title } });
+    if (!existing) {
+      await prisma.pattern.create({ data: p });
+    }
   }
-  console.log(`  ✅ ${patterns.length} patterns created`);
+  console.log(`  ✅ ${patterns.length} patterns checked/created`);
 
   console.log("\n🎉 Seeding complete!");
   console.log("─────────────────────────────────");
-  console.log("Admin login:    admin@bafkhaneh.ir / admin123");
-  console.log("Customer login: customer@test.com / test123");
+  console.log("Admin login:    09120000000 / admin123");
+  console.log("Customer login: 09121234567 / test123");
   console.log("─────────────────────────────────");
 }
 

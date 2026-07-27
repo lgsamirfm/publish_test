@@ -3,11 +3,10 @@ import { db } from "@/lib/db";
 import { hashPassword, createSession } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
 
 // POST /api/auth/signup
-// Body: { name, email, password }
+// Body: { name, phone, password }
 // Returns: { user } and sets the baf_session cookie.
 export async function POST(req: NextRequest) {
   try {
@@ -20,8 +19,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const name = String(body?.name ?? "").trim();
-    const email = String(body?.email ?? "").trim().toLowerCase();
+    const rawPhone = String(body?.phone ?? "").trim();
     const password = String(body?.password ?? "");
+
+    const phone = normalizeIranianPhone(rawPhone);
 
     if (!name) {
       return jsonError("نام را وارد کنید.", 422);
@@ -29,11 +30,8 @@ export async function POST(req: NextRequest) {
     if (name.length > 100) {
       return jsonError("نام بسیار طولانی است.", 422);
     }
-    if (email.length > 200) {
-      return jsonError("ایمیل بسیار طولانی است.", 422);
-    }
-    if (!EMAIL_RE.test(email)) {
-      return jsonError("ایمیل معتبر نیست.", 422);
+    if (!phone || !isValidIranianPhone(phone)) {
+      return jsonError("شماره موبایل وارد شده معتبر نیست. (مثال: 09121234567)", 422);
     }
     if (password.length < 6) {
       return jsonError("گذرواژه باید حداقل ۶ نویسه باشد.", 422);
@@ -42,18 +40,23 @@ export async function POST(req: NextRequest) {
       return jsonError("گذرواژه نباید بیشتر از ۱۲۸ نویسه باشد.", 422);
     }
 
-    const existing = await db.user.findUnique({
-      where: { email },
+    const existing = await db.user.findFirst({
+      where: { phone },
       select: { id: true },
     });
     if (existing) {
-      // Generic message to avoid email enumeration — don't confirm the email exists.
-      return jsonError("امکان ثبت‌نام با این ایمیل وجود ندارد. اگر حساب دارید، وارد شوید.", 401);
+      return jsonError("حسابی با این شماره موبایل قبلاً ثبت شده است. اگر حساب دارید، وارد شوید.", 409);
     }
 
     const user = await db.user.create({
-      data: { name, email, password: hashPassword(password), role: "CUSTOMER" },
-      select: { id: true, name: true, email: true, role: true },
+      data: {
+        name,
+        phone,
+        email: "",
+        password: hashPassword(password),
+        role: "CUSTOMER",
+      },
+      select: { id: true, name: true, phone: true, email: true, role: true },
     });
 
     await createSession(user.id, "CUSTOMER");

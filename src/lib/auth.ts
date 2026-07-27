@@ -23,7 +23,8 @@ function getSecret(): string {
 export type SessionUser = {
   id: string;
   name: string;
-  email: string;
+  phone: string;
+  email?: string | null;
   role: "ADMIN" | "CUSTOMER";
 };
 
@@ -99,7 +100,7 @@ export async function getSession(): Promise<SessionUser | null> {
   if (!payload) return null;
   const user = await db.user.findUnique({
     where: { id: payload.uid as string },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, phone: true, email: true, role: true },
   });
   if (!user) return null;
   return user as SessionUser;

@@ -1,39 +1,53 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
 
 export async function POST(req: Request) {
   try {
-    const { token, password } = await req.json();
+    const { phone: rawPhone, code, password } = await req.json().catch(() => ({}));
 
-    if (!token || typeof token !== "string") {
-      return NextResponse.json({ error: "توکن نامعتبر است." }, { status: 400 });
+    const phone = normalizeIranianPhone(String(rawPhone ?? ""));
+
+    if (!phone || !isValidIranianPhone(phone)) {
+      return NextResponse.json(
+        { error: "شماره موبایل وارد شده معتبر نیست." },
+        { status: 400 }
+      );
+    }
+
+    if (!code || typeof code !== "string" || code.trim().length === 0) {
+      return NextResponse.json({ error: "کد تأیید الزامی است." }, { status: 400 });
     }
 
     if (!password || typeof password !== "string" || password.length < 6) {
       return NextResponse.json(
-        { error: "گذرواژه باید حداقل ۶ کاراکتر باشد." },
+        { error: "گذرواژه جدید باید حداقل ۶ نویسه باشد." },
         { status: 400 }
       );
     }
 
     if (password.length > 128) {
       return NextResponse.json(
-        { error: "گذرواژه خیلی طولانی است." },
+        { error: "گذرواژه جدید خیلی طولانی است." },
         { status: 400 }
       );
     }
 
+    const cleanCode = code.trim();
+
+    // Check if user exists with matching phone, reset token/code and expiry > now
     const user = await db.user.findFirst({
       where: {
-        resetToken: token,
+        phone,
+        resetToken: cleanCode,
         resetTokenExpiry: { gt: new Date() },
       },
     });
 
     if (!user) {
       return NextResponse.json(
-        { error: "توکن نامعتبر یا منقضی شده است." },
+        { error: "کد تأیید نامعتبر است یا مهلت ۲ دقیقه‌ای آن به پایان رسیده است." },
         { status: 400 }
       );
     }
@@ -48,7 +62,10 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, message: "گذرواژه با موفقیت تغییر کرد." });
+    return NextResponse.json({
+      ok: true,
+      message: "گذرواژه با موفقیت تغییر یافت. اکنون می‌توانید وارد شوید.",
+    });
   } catch {
     return NextResponse.json({ error: "خطای سرور." }, { status: 500 });
   }

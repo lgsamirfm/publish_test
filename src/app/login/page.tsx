@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,24 +16,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { isValidIranianPhone, normalizeIranianPhone } from "@/lib/format";
 
 export default function LoginPage() {
   const params = useSearchParams();
   const next = params.get("next");
 
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    const normalized = normalizeIranianPhone(phone);
+    if (!isValidIranianPhone(normalized)) {
+      toast.error("شماره موبایل معتبر نیست. (شماره ۱۱ رقمی با 09)");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ phone: normalized, password }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -45,10 +53,6 @@ export default function LoginPage() {
 
       toast.success("خوش آمدید!");
 
-      // Role-aware redirect:
-      //  - explicit ?next= (from a protected page) is respected, but only if it's a relative URL
-      //  - admins go to the dashboard
-      //  - customers go to their account page (سفارش‌ها)
       const role = data?.user?.role;
       const safeNext =
         next && next.startsWith("/") && !next.startsWith("//") ? next : null;
@@ -58,7 +62,6 @@ export default function LoginPage() {
           ? "/admin"
           : "/account";
 
-      // Hard navigation so the session cookie is applied before the next render.
       window.location.href = dest;
     } catch {
       toast.error("خطای شبکه. دوباره تلاش کنید.");
@@ -75,25 +78,28 @@ export default function LoginPage() {
             ورود به حساب
           </CardTitle>
           <CardDescription>
-            ایمیل و گذرواژهٔ خود را وارد کنید تا وارد شوید.
+            شماره موبایل و گذرواژهٔ خود را وارد کنید تا وارد شوید.
           </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">ایمیل</Label>
-              <Input
-                id="email"
-                type="email"
-                dir="ltr"
-                autoComplete="email"
-                required
-                className="text-left"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Label htmlFor="phone">شماره موبایل</Label>
+              <div className="relative">
+                <Input
+                  id="phone"
+                  type="tel"
+                  dir="ltr"
+                  maxLength={11}
+                  required
+                  className="text-left pl-9"
+                  placeholder="09121234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <Phone className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -121,7 +127,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin ms-2" />
                   در حال ورود…
                 </>
               ) : (

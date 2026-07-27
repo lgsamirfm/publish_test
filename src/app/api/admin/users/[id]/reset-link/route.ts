@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 
@@ -16,15 +15,16 @@ export async function POST(
       return NextResponse.json({ error: "کاربر یافت نشد." }, { status: 404 });
     }
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // 6-digit random code with 2-minute expiry
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetTokenExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
     await db.user.update({
       where: { id: user.id },
-      data: { resetToken, resetTokenExpiry },
+      data: { resetToken: code, resetTokenExpiry },
     });
 
-    return NextResponse.json({ token: resetToken });
+    return NextResponse.json({ code, phone: user.phone });
   } catch {
     return NextResponse.json({ error: "خطای سرور." }, { status: 500 });
   }

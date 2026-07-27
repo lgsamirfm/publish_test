@@ -1,39 +1,47 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
+import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
-    if (!email || typeof email !== "string" || email.trim().length > 254) {
-      return NextResponse.json({ error: "ایمیل نامعتبر است." }, { status: 400 });
+    const { phone: rawPhone } = await req.json().catch(() => ({}));
+    const phone = normalizeIranianPhone(String(rawPhone ?? ""));
+
+    if (!phone || !isValidIranianPhone(phone)) {
+      return NextResponse.json(
+        { error: "شماره موبایل وارد شده معتبر نیست. (مثال: 09121234567)" },
+        { status: 400 }
+      );
     }
 
-    const user = await db.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const user = await db.user.findFirst({
+      where: { phone },
     });
 
-    // Always return success to prevent email enumeration
     if (!user) {
       return NextResponse.json({
         ok: true,
-        message: "اگر این ایمیل در سیستم باشد، لینک بازیابی ارسال شده است.",
+        message: "کد تأیید به شماره موبایل ارسال شد (اگر در سیستم ثبت شده باشد).",
       });
     }
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    // Generate random 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set 2-minute expiration (2 * 60 * 1000 ms)
+    const resetTokenExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
     await db.user.update({
       where: { id: user.id },
-      data: { resetToken, resetTokenExpiry },
+      data: { resetToken: code, resetTokenExpiry },
     });
 
-    // In production, send email here instead of returning the token
     return NextResponse.json({
       ok: true,
-      message: "اگر این ایمیل در سیستم باشد، لینک بازیابی ارسال شده است.",
-      token: resetToken, // ← Remove in production!
+      message: "کد تأیید ۲ دقیقه‌ای به شماره موبایل شما ارسال شد.",
+      code, // Included for testing/simulation convenience
+      expiresInSeconds: 120,
     });
   } catch {
     return NextResponse.json({ error: "خطای سرور." }, { status: 500 });

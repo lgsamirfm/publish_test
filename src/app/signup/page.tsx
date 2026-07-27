@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,15 +16,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidIranianPhone, normalizeIranianPhone } from "@/lib/format";
 
 export default function SignupPage() {
   const params = useSearchParams();
   const next = params.get("next");
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,9 +31,12 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Client-side validation.
+    const normalizedPhone = normalizeIranianPhone(phone);
+
+    // Client-side validation
     if (!name.trim()) return toast.error("نام را وارد کنید.");
-    if (!EMAIL_RE.test(email.trim())) return toast.error("ایمیل معتبر نیست.");
+    if (!isValidIranianPhone(normalizedPhone))
+      return toast.error("شماره موبایل معتبر نیست. (شماره ۱۱ رقمی با 09)");
     if (password.length < 6)
       return toast.error("گذرواژه باید حداقل ۶ نویسه باشد.");
     if (password !== confirm)
@@ -48,7 +50,7 @@ export default function SignupPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
+          phone: normalizedPhone,
           password,
         }),
       });
@@ -61,10 +63,7 @@ export default function SignupPage() {
       }
 
       toast.success("حساب شما ساخته شد. خوش آمدید!");
-      // New users go to their account page (سفارش‌ها).
-      // Only allow relative URLs to prevent open redirect attacks.
-      // Block protocol-relative URLs (//evil.com) which start with "/" but
-      // navigate to an external host.
+
       const safeNext =
         next && next.startsWith("/") && !next.startsWith("//")
           ? next
@@ -103,18 +102,21 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">ایمیل</Label>
-              <Input
-                id="email"
-                type="email"
-                dir="ltr"
-                autoComplete="email"
-                required
-                className="text-left"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Label htmlFor="phone">شماره موبایل</Label>
+              <div className="relative">
+                <Input
+                  id="phone"
+                  type="tel"
+                  dir="ltr"
+                  maxLength={11}
+                  required
+                  className="text-left pl-9"
+                  placeholder="09121234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <Phone className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -157,7 +159,7 @@ export default function SignupPage() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin ms-2" />
                   در حال ساخت حساب…
                 </>
               ) : (

@@ -65,9 +65,9 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/admin/users/" + userId + "/reset-link", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(data.error || "خطا"); return; }
-      const url = window.location.origin + "/reset-password?token=" + data.token;
+      const url = window.location.origin + "/reset-password?phone=" + encodeURIComponent(data.phone) + "&code=" + data.code;
       await navigator.clipboard.writeText(url);
-      toast.success("لینک بازیابی کپی شد!");
+      toast.success(`کد بازیابی (${data.code}) تولید و لینک در حافظه کپی شد!`);
     } catch { toast.error("خطا"); }
   }
 

@@ -50,7 +50,8 @@ export type Pattern = {
 export type SessionUser = {
   id: string;
   name: string;
-  email: string;
+  phone: string;
+  email?: string | null;
   role: "ADMIN" | "CUSTOMER";
 };
 

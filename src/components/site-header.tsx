@@ -22,7 +22,8 @@ import { toFa } from "@/lib/format";
 type SessionUser = {
   id: string;
   name: string;
-  email: string;
+  phone: string;
+  email?: string | null;
   role: "ADMIN" | "CUSTOMER";
 };
 

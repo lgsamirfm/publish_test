@@ -154,12 +154,12 @@ export default async function AccountPage() {
               <div className="flex items-start gap-3">
                 <Mail className="mt-0.5 size-4 text-muted-foreground" />
                 <div className="min-w-0">
-                  <div className="text-muted-foreground">ایمیل</div>
+                  <div className="text-muted-foreground">شماره موبایل</div>
                   <div
                     className="truncate font-medium text-foreground"
                     dir="ltr"
                   >
-                    {session.email}
+                    {session.phone}
                   </div>
                 </div>
               </div>

@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
 /**
  * GET /api/orders
  * - Customer: own orders, newest first.
- * - Admin: all orders, newest first, with user name/email.
+ * - Admin: all orders, newest first, with user name/email/phone.
  */
 export async function GET() {
   try {
@@ -224,7 +224,7 @@ export async function GET() {
       const orders = await db.order.findMany({
         include: {
           items: true,
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, phone: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
       });
