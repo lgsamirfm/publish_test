@@ -20,6 +20,10 @@ import {
   Package,
   FileText,
   ChevronLeft,
+  MessageCircle,
+  Scale,
+  Send,
+  Instagram,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -57,12 +61,17 @@ const PATTERN_LEVELS = [
   { value: "پیشرفته", label: "پیشرفته", desc: "حرفه‌ای", Icon: Flame },
 ] as const;
 
+const ABOUT_LINKS = [
+  { href: "/about", label: "درباره من", desc: "داستان بافخانه و ارزش‌ها", Icon: Heart },
+  { href: "/contact", label: "تماس با من", desc: "اینستا، تلگرام، واتساپ", Icon: MessageCircle },
+  { href: "/terms", label: "قوانین و مقررات", desc: "شرایط خرید و بازگشت", Icon: Scale },
+] as const;
+
 const NAV = [
   { href: "/", label: "خانه" },
   { href: "/products", label: "محصولات", type: "products" as const },
   { href: "/patterns", label: "الگوی کروشه", type: "patterns" as const },
-  { href: "/about", label: "درباره من" },
-  { href: "/terms", label: "قوانین و مقررات" },
+  { href: "/about", label: "درباره من", type: "about" as const },
 ];
 
 export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }) {
@@ -93,6 +102,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
   const [currentDifficulty, setCurrentDifficulty] = useState("");
   const [productsOpen, setProductsOpen] = useState(false);
   const [patternsOpen, setPatternsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -102,10 +112,10 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
     }
   }, [pathname]);
 
-  // Close desktop popups on route change
   useEffect(() => {
     setProductsOpen(false);
     setPatternsOpen(false);
+    setAboutOpen(false);
   }, [pathname]);
 
   return (
@@ -132,7 +142,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
 
-            // PRODUCTS DROPDOWN
             if (item.type === "products") {
               return (
                 <div
@@ -159,8 +168,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                       )}
                     />
                   </Link>
-
-                  {/* Dropdown panel */}
                   <div
                     className={cn(
                       "absolute right-0 top-[calc(100%+8px)] z-50 transition-all duration-200",
@@ -169,7 +176,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                         : "invisible translate-y-2 opacity-0 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100"
                     )}
                   >
-                    {/* invisible bridge to keep hover */}
                     <div className="absolute -top-3 right-0 h-3 w-full" />
                     <div className="min-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-xl">
                       <div className="p-1">
@@ -187,7 +193,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                           </div>
                         </Link>
                       </div>
-
                       <div className="my-1 h-px bg-border/60" />
                       <div className="px-1 py-1">
                         <p className="px-3 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground">دسته‌بندی‌ها</p>
@@ -218,7 +223,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                           })}
                         </div>
                       </div>
-
                       <div className="mt-1 rounded-xl bg-primary/5 p-3">
                         <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary">
                           <Heart className="size-3" /> پیشنهاد بافخانه
@@ -233,7 +237,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
               );
             }
 
-            // PATTERNS DROPDOWN
             if (item.type === "patterns") {
               return (
                 <div
@@ -260,7 +263,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                       )}
                     />
                   </Link>
-
                   <div
                     className={cn(
                       "absolute right-0 top-[calc(100%+8px)] z-50 transition-all duration-200",
@@ -286,7 +288,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                           </div>
                         </Link>
                       </div>
-
                       <div className="my-1 h-px bg-border/60" />
                       <div className="px-1 py-1">
                         <p className="px-3 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground">سطح دشواری</p>
@@ -320,7 +321,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                           })}
                         </div>
                       </div>
-
                       <div className="mt-1 rounded-xl bg-secondary/30 p-3">
                         <p className="text-xs leading-6 text-muted-foreground">
                           <span className="font-bold text-foreground">✿ نکته:</span> بعد از خرید، PDF الگو بلافاصله در حساب کاربری شما فعال می‌شود.
@@ -332,7 +332,113 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
               );
             }
 
-            // SIMPLE LINK
+            if (item.type === "about") {
+              return (
+                <div
+                  key={item.href}
+                  className="relative group"
+                  onMouseEnter={() => setAboutOpen(true)}
+                  onMouseLeave={() => setAboutOpen(false)}
+                >
+                  <Link
+                    href={item.href}
+                    onClick={() => setAboutOpen(false)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                    )}
+                  >
+                    {item.label}
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 shrink-0 opacity-60 transition-transform duration-200",
+                        aboutOpen ? "rotate-180" : "group-hover:rotate-180"
+                      )}
+                    />
+                  </Link>
+                  <div
+                    className={cn(
+                      "absolute right-0 top-[calc(100%+8px)] z-50 transition-all duration-200",
+                      aboutOpen
+                        ? "visible translate-y-0 opacity-100"
+                        : "invisible translate-y-2 opacity-0 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100"
+                    )}
+                  >
+                    <div className="absolute -top-3 right-0 h-3 w-full" />
+                    <div className="min-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-xl">
+                      <div className="px-1 py-1">
+                        <p className="px-3 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground">درباره بافخانه</p>
+                        <div className="grid gap-1">
+                          {ABOUT_LINKS.map(({ href, label, desc, Icon }) => {
+                            const active = pathname === href || (href !== "/about" && pathname.startsWith(href));
+                            return (
+                              <Link
+                                key={href}
+                                href={href}
+                                onClick={() => setAboutOpen(false)}
+                                className={cn(
+                                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                                  active
+                                    ? "bg-accent text-accent-foreground"
+                                    : "text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+                                )}
+                              >
+                                <span className={cn("flex size-9 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground")}>
+                                  <Icon className="size-4" />
+                                </span>
+                                <span className="flex flex-col items-start leading-tight">
+                                  <span className="font-bold">{label}</span>
+                                  <span className="text-[11px] text-muted-foreground">{desc}</span>
+                                </span>
+                                <ChevronLeft className="mr-auto size-3.5 opacity-40" />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-1 rounded-xl bg-accent/40 p-3">
+                        <div className="flex items-center gap-2">
+                          <a
+                            href="https://instagram.com/bafkhaneh"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setAboutOpen(false)}
+                            aria-label="اینستاگرام بافخانه"
+                            className="flex size-7 items-center justify-center rounded-lg bg-background transition-all hover:scale-110 hover:shadow-sm"
+                          >
+                            <Instagram className="size-4 text-pink-500" />
+                          </a>
+                          <a
+                            href="https://t.me/bafkhaneh"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setAboutOpen(false)}
+                            aria-label="تلگرام بافخانه"
+                            className="flex size-7 items-center justify-center rounded-lg bg-background transition-all hover:scale-110 hover:shadow-sm"
+                          >
+                            <Send className="size-4 text-[#229ED9]" />
+                          </a>
+                          <a
+                            href="https://wa.me/989123456789"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setAboutOpen(false)}
+                            aria-label="واتساپ بافخانه"
+                            className="flex size-7 items-center justify-center rounded-lg bg-background transition-all hover:scale-110 hover:shadow-sm"
+                          >
+                            <MessageCircle className="size-4 text-[#25D366]" />
+                          </a>
+                          <span className="mr-auto text-[11px] text-muted-foreground">بافخانه در شبکه‌های اجتماعی</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
@@ -416,7 +522,6 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
               </SheetHeader>
 
               <div className="mt-4 flex flex-col gap-4 px-4 pb-8">
-                {/* Main links with expandable children for mobile */}
                 <div className="flex flex-col gap-1">
                   <Link
                     href="/"
@@ -429,7 +534,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                     خانه
                   </Link>
 
-                  {/* Products mobile expand */}
+                  {/* Products mobile */}
                   <div className="flex flex-col">
                     <div className="flex items-center justify-between rounded-xl px-3 py-2.5">
                       <Link href="/products" onClick={() => setOpen(false)} className="text-sm font-bold text-foreground">
@@ -438,11 +543,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                       <span className="text-[11px] text-muted-foreground">دسته‌بندی‌ها</span>
                     </div>
                     <div className="mr-2 flex flex-col gap-1 border-r-2 border-border/60 pr-2">
-                      <Link
-                        href="/products"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
+                      <Link href="/products" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
                         <Package className="size-4" />
                         همه محصولات
                       </Link>
@@ -467,7 +568,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                     </div>
                   </div>
 
-                  {/* Patterns mobile expand */}
+                  {/* Patterns mobile */}
                   <div className="mt-1 flex flex-col">
                     <div className="flex items-center justify-between rounded-xl px-3 py-2.5">
                       <Link href="/patterns" onClick={() => setOpen(false)} className="text-sm font-bold text-foreground">
@@ -476,11 +577,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                       <span className="text-[11px] text-muted-foreground">سطح‌ها</span>
                     </div>
                     <div className="mr-2 flex flex-col gap-1 border-r-2 border-border/60 pr-2">
-                      <Link
-                        href="/patterns"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
+                      <Link href="/patterns" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
                         <FileText className="size-4" />
                         همه الگوها
                       </Link>
@@ -503,26 +600,33 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                     </div>
                   </div>
 
-                  <Link
-                    href="/about"
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "mt-1 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      pathname.startsWith("/about") ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent"
-                    )}
-                  >
-                    درباره من
-                  </Link>
-                  <Link
-                    href="/terms"
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      pathname.startsWith("/terms") ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent"
-                    )}
-                  >
-                    قوانین و مقررات
-                  </Link>
+                  {/* About mobile - with terms & contact */}
+                  <div className="mt-1 flex flex-col">
+                    <div className="flex items-center justify-between rounded-xl px-3 py-2.5">
+                      <Link href="/about" onClick={() => setOpen(false)} className="text-sm font-bold text-foreground">
+                        درباره من
+                      </Link>
+                      <span className="text-[11px] text-muted-foreground">اطلاعات</span>
+                    </div>
+                    <div className="mr-2 flex flex-col gap-1 border-r-2 border-border/60 pr-2">
+                      {ABOUT_LINKS.map(({ href, label, Icon }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                            pathname === href || (href !== "/about" && pathname.startsWith(href))
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          <Icon className="size-4" />
+                          {label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="my-1 h-px bg-border" />
@@ -545,19 +649,11 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                 {user ? (
                   <>
                     {user.role === "ADMIN" && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setOpen(false)}
-                        className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-                      >
+                      <Link href="/admin" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
                         پیشخوان مدیریت
                       </Link>
                     )}
-                    <Link
-                      href="/account"
-                      onClick={() => setOpen(false)}
-                      className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-                    >
+                    <Link href="/account" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
                       حساب کاربری
                     </Link>
                     <button
@@ -572,18 +668,10 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                   </>
                 ) : (
                   <>
-                    <Link
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-                    >
+                    <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
                       ورود
                     </Link>
-                    <Link
-                      href="/signup"
-                      onClick={() => setOpen(false)}
-                      className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-                    >
+                    <Link href="/signup" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
                       ثبت‌نام
                     </Link>
                   </>
