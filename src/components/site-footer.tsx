@@ -43,6 +43,7 @@ export function SiteFooter() {
             <li><Link href="/products" className="hover:text-primary">محصولات</Link></li>
             <li><Link href="/patterns" className="hover:text-primary">الگوی کروشه</Link></li>
             <li><Link href="/about" className="hover:text-primary">درباره من</Link></li>
+            <li><Link href="/terms" className="hover:text-primary">قوانین و مقررات</Link></li>
             <li><Link href="/cart" className="hover:text-primary">سبد خرید</Link></li>
           </ul>
         </div>
