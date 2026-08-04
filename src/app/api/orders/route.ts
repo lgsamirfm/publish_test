@@ -89,6 +89,15 @@ export async function POST(req: NextRequest) {
       items.push({ type: it.type, id: it.id, quantity: qty });
     }
 
+    // Digital patterns cannot be paid via COD (Cash on Delivery)
+    const hasPatternItem = items.some((it) => it.type === "PATTERN");
+    if (hasPatternItem && paymentMethod === "COD") {
+      return jsonError(
+        "الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند و امکان پرداخت در محل برای آن‌ها وجود ندارد.",
+        400
+      );
+    }
+
     // Look up each item and snapshot its real DB price (never trust client)
     const orderItemsData: {
       itemType: "PRODUCT" | "PATTERN";
@@ -214,7 +223,7 @@ export async function POST(req: NextRequest) {
 /**
  * GET /api/orders
  * - Customer: own orders, newest first.
- * - Admin: all orders, newest first, with user name/email/phone.
+ * - Admin: all orders, newest first, with user name/email.
  */
 export async function GET() {
   try {

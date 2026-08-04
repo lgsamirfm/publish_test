@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     // Look up the order and verify ownership
     const order = await db.order.findUnique({
       where: { id: orderId },
+      include: { items: true },
     });
 
     if (!order) {
@@ -57,6 +58,15 @@ export async function POST(req: NextRequest) {
 
     if (order.userId !== user.id) {
       return jsonError("این سفارش متعلق به شما نیست.", 403);
+    }
+
+    // Digital patterns cannot be paid via COD
+    const hasPatternItems = order.items.some((i) => i.itemType === "PATTERN");
+    if (hasPatternItems && paymentMethod === "COD") {
+      return jsonError(
+        "الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند.",
+        400
+      );
     }
 
     // Compute amount server-side — never trust the client

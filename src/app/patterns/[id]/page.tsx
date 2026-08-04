@@ -195,7 +195,7 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
               <Download className="mt-0.5 size-4 shrink-0 text-primary" />
               <p>
                 این یک الگوی دیجیتال است. پس از تکمیل خرید، فایل PDF الگو در حساب
-                کاربری شما قابل دانلود خواهد بود.
+                کاربری شما قابل خواندن خواهد بود.
               </p>
             </div>
           </div>

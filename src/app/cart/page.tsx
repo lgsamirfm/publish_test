@@ -84,6 +84,15 @@ export default function CartPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState("");
 
+  // Check if cart contains any digital pattern item
+  const hasPattern = items.some((i) => i.type === "PATTERN");
+
+  useEffect(() => {
+    if (hasPattern && paymentMethod === "COD") {
+      setPaymentMethod("ONLINE");
+    }
+  }, [hasPattern, paymentMethod]);
+
   // Order success state
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState("");
@@ -644,6 +653,8 @@ export default function CartPage() {
                 value={paymentMethod}
                 onChange={setPaymentMethod}
                 amount={grandTotal}
+                disableCod={hasPattern}
+                disableCodReason="به دلیل وجود الگوی دیجیتال در سبد خرید، امکان پرداخت در محل وجود ندارد و پرداخت فقط به‌صورت آنلاین انجام می‌شود."
               />
 
               {/* Delivery summary */}

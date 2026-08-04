@@ -80,14 +80,14 @@ export default async function PatternsPage({ searchParams }: { searchParams: Sea
       <SectionHeading
         eyebrow="الگوی کروشه"
         title="الگوهای کروشه"
-        subtitle="الگوهای کروشه قابل دانلود در PDF؛ از پروژه‌های مبتدی تا آمیگورومی‌های پیشرفته. پس از خرید، فایل الگو در حساب کاربری شما قابل دانلود است."
+        subtitle="الگوهای کروشه قابل خواندن در PDF؛ از پروژه‌های مبتدی تا آمیگورومی‌های پیشرفته. پس از خرید، فایل الگو در حساب کاربری شما قابل خواندن است."
       />
 
       {/* Info banner */}
       <div className="mt-6 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm text-foreground">
         <Info className="mt-0.5 size-5 shrink-0 text-primary" />
         <p>
-          پس از خرید، فایل PDF الگو در حساب کاربری شما قابل دانلود است. هر الگو
+          پس از خرید، فایل PDF الگو در حساب کاربری شما قابل خواندن است. هر الگو
           شامل راهنمای گام‌به‌گام، نوع نخ، شماره قلاب و گیج پیشنهادی است.
         </p>
       </div>

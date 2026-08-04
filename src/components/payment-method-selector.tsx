@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, Banknote, Lock, Truck, CheckCircle2 } from "lucide-react";
+import { CreditCard, Banknote, Lock, Truck, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/format";
@@ -9,6 +9,8 @@ interface PaymentMethodSelectorProps {
   value: "ONLINE" | "COD";
   onChange: (method: "ONLINE" | "COD") => void;
   amount: number;
+  disableCod?: boolean;
+  disableCodReason?: string;
 }
 
 const methods = [
@@ -36,6 +38,8 @@ export function PaymentMethodSelector({
   value,
   onChange,
   amount,
+  disableCod = false,
+  disableCodReason = "الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند.",
 }: PaymentMethodSelectorProps) {
   return (
     <div dir="rtl" className="space-y-3">
@@ -44,8 +48,16 @@ export function PaymentMethodSelector({
         <span className="text-foreground font-bold">{formatPrice(amount)}</span>
       </div>
 
+      {disableCod && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{disableCodReason}</span>
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
         {methods.map((method) => {
+          const isCodDisabled = method.key === "COD" && disableCod;
           const isSelected = value === method.key;
           const Icon = method.icon;
           const BadgeIcon = method.badgeIcon;
@@ -54,17 +66,20 @@ export function PaymentMethodSelector({
             <button
               key={method.key}
               type="button"
-              onClick={() => onChange(method.key)}
+              disabled={isCodDisabled}
+              onClick={() => !isCodDisabled && onChange(method.key)}
               className={cn(
-                "relative flex flex-col items-start gap-3 rounded-xl border-2 p-4 text-right transition-all duration-200 cursor-pointer",
-                "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                isSelected
+                "relative flex flex-col items-start gap-3 rounded-xl border-2 p-4 text-right transition-all duration-200",
+                isCodDisabled
+                  ? "opacity-50 cursor-not-allowed bg-muted/30 border-muted"
+                  : "cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                isSelected && !isCodDisabled
                   ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-muted bg-background hover:border-muted-foreground/30"
+                  : !isCodDisabled && "border-muted bg-background hover:border-muted-foreground/30"
               )}
             >
               {/* Selected checkmark */}
-              {isSelected && (
+              {isSelected && !isCodDisabled && (
                 <div className="absolute top-3 left-3">
                   <CheckCircle2 className="size-5 text-primary fill-primary/10" />
                 </div>
@@ -75,7 +90,9 @@ export function PaymentMethodSelector({
                 <div
                   className={cn(
                     "flex items-center justify-center w-10 h-10 rounded-lg",
-                    isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    isSelected && !isCodDisabled
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
                   <Icon className="size-5" />
@@ -83,7 +100,7 @@ export function PaymentMethodSelector({
                 <span
                   className={cn(
                     "font-semibold text-sm",
-                    isSelected ? "text-primary" : "text-foreground"
+                    isSelected && !isCodDisabled ? "text-primary" : "text-foreground"
                   )}
                 >
                   {method.title}
@@ -92,12 +109,14 @@ export function PaymentMethodSelector({
 
               {/* Description */}
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {method.description}
+                {isCodDisabled
+                  ? "غیرقابل انتخاب (به دلیل وجود الگوی دیجیتال در سبد)"
+                  : method.description}
               </p>
 
               {/* Badge */}
               <Badge
-                variant={isSelected ? "default" : "secondary"}
+                variant={isSelected && !isCodDisabled ? "default" : "secondary"}
                 className="gap-1 text-[10px]"
               >
                 <BadgeIcon className="size-3" />
