@@ -12,6 +12,7 @@ export type Product = {
   description: string;
   price: number;
   images: string;
+  submissionImages?: string; // comma-separated image URLs (max 6) — "ارسالی های شما"
   variants: string; // JSON string of ProductVariant[]
   category: string;
   stock: number;

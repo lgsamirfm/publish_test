@@ -58,12 +58,15 @@ const CATEGORIES = [
   "باجه گل",
   "لوازم تزئینی",
 ];
+const MAX_SUBMISSION_IMAGES = 6;
+
 
 type FormState = {
   name: string;
   description: string;
   price: string;
   images: string[]; // array of image URLs (unlimited)
+  submissionImages: string[];
   variants: ProductVariant[]; // array of {name, color?}
   category: string;
   stock: string;
@@ -75,6 +78,7 @@ const EMPTY: FormState = {
   description: "",
   price: "",
   images: [""],
+  submissionImages: [],
   variants: [],
   category: CATEGORIES[0],
   stock: "0",
@@ -123,12 +127,20 @@ export default function AdminProductsPage() {
   function openEdit(p: Product) {
     setEditing(p);
     const imgs = p.images ? p.images.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const subImgs = p.submissionImages
+      ? p.submissionImages
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, MAX_SUBMISSION_IMAGES)
+      : [];
     const vars = parseVariants(p.variants);
     setForm({
       name: p.name,
       description: p.description,
       price: String(p.price),
       images: imgs.length > 0 ? imgs : [""],
+      submissionImages: subImgs,
       variants: vars,
       category: p.category || CATEGORIES[0],
       stock: String(p.stock),
@@ -153,6 +165,26 @@ export default function AdminProductsPage() {
       const images = f.images.filter((_, idx) => idx !== i);
       return { ...f, images: images.length > 0 ? images : [""] };
     });
+  }
+  // ---- submission image URL helpers (max 6, "ارسالی های شما") ----
+  function setSubmissionImage(i: number, val: string) {
+    setForm((f) => {
+      const submissionImages = [...f.submissionImages];
+      submissionImages[i] = val;
+      return { ...f, submissionImages };
+    });
+  }
+  function addSubmissionImage() {
+    setForm((f) => {
+      if (f.submissionImages.length >= MAX_SUBMISSION_IMAGES) return f;
+      return { ...f, submissionImages: [...f.submissionImages, ""] };
+    });
+  }
+  function removeSubmissionImage(i: number) {
+    setForm((f) => ({
+      ...f,
+      submissionImages: f.submissionImages.filter((_, idx) => idx !== i),
+    }));
   }
 
   // ---- variant helpers ----
@@ -195,6 +227,13 @@ export default function AdminProductsPage() {
     // Build comma-separated images (drop empty).
     const imagesStr = form.images.map((s) => s.trim()).filter(Boolean).join(",");
 
+    // Build submission images (drop empty, cap at MAX_SUBMISSION_IMAGES).
+    const submissionImagesStr = form.submissionImages
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, MAX_SUBMISSION_IMAGES)
+      .join(",");
+    
     // Clean variants (drop empty names).
     const cleanVariants = form.variants
       .map((v) => ({
@@ -208,6 +247,7 @@ export default function AdminProductsPage() {
       description: form.description.trim(),
       price: Math.round(price),
       images: imagesStr,
+      submissionImages: submissionImagesStr,
       variants: cleanVariants,
       category: form.category,
       stock: Math.round(stock),
@@ -555,6 +595,70 @@ export default function AdminProductsPage() {
                 هر تعداد تصویر که خواستید اضافه کنید.
               </p>
             </div>
+
+            {/* Submission images — "ارسالی های شما" (max 6) */}
+            <div className="sm:col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>تصاویر «ارسالی های شما»</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addSubmissionImage}
+                  disabled={
+                    form.submissionImages.length >= MAX_SUBMISSION_IMAGES
+                  }
+                  className="gap-1.5"
+                >
+                  <Plus className="size-3.5" />
+                  افزودن تصویر
+                </Button>
+              </div>
+              {form.submissionImages.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+                  تصویری اضافه نشده. اگر این بخش خالی بماند، در صفحهٔ محصول
+                  نمایش داده نمی‌شود. حداکثر {toFa(MAX_SUBMISSION_IMAGES)}{" "}
+                  تصویر می‌توانید اضافه کنید.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {form.submissionImages.map((img, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <ImageFallback
+                        src={img || undefined}
+                        alt={`ارسالی ${toFa(i + 1)}`}
+                        className="size-12 shrink-0"
+                        rounded="rounded-lg"
+                      />
+                      <Input
+                        value={img}
+                        onChange={(e) => setSubmissionImage(i, e.target.value)}
+                        dir="ltr"
+                        className="text-left"
+                        placeholder="/images/example.png یا https://..."
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => removeSubmissionImage(i)}
+                        aria-label="حذف تصویر ارسالی"
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                این تصاویر در بخش «ارسالی های شما» در صفحهٔ محصول نمایش داده
+                می‌شوند. حداکثر {toFa(MAX_SUBMISSION_IMAGES)} تصویر (
+                {toFa(form.submissionImages.length)}/
+                {toFa(MAX_SUBMISSION_IMAGES)}).
+              </p>
+            </div>
+
 
             {/* Variants — dynamic, unlimited (e.g. colors) */}
             <div className="sm:col-span-2 space-y-2">

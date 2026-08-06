@@ -62,6 +62,16 @@ export async function POST(req: NextRequest) {
     const category = String(body.category ?? "عمومی").trim() || "عمومی";
     const stock = Math.max(0, Math.floor(Number(body.stock ?? 0)));
     const featured = Boolean(body.featured);
+    // submissionImages: comma-separated URLs, max 6 photos (for "ارسالی های شما")
+    const rawSubmissionImages = String(body.submissionImages ?? "").trim();
+    const submissionImages = rawSubmissionImages
+      ? rawSubmissionImages
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 6)
+          .join(",")
+      : "";
     // variants: array of {name, color?} -> store as JSON string.
     let variantsJson = "[]";
     try {
@@ -81,6 +91,7 @@ export async function POST(req: NextRequest) {
     if (name.length > 200) return jsonError("نام محصول بسیار طولانی است.", 400);
     if (description.length > 5000) return jsonError("توضیحات بسیار طولانی است.", 400);
     if (images.length > 2000) return jsonError("لینک تصاویر بسیار طولانی است.", 400);
+    if (submissionImages.length > 2000) return jsonError("لینک تصاویر ارسالی بسیار طولانی است.", 400);
     if (category.length > 100) return jsonError("نام دسته بسیار طولانی است.", 400);
     if (!Number.isFinite(price) || price <= 0) {
       return jsonError("قیمت معتبر نیست.", 400);
@@ -92,6 +103,7 @@ export async function POST(req: NextRequest) {
         description,
         price,
         images,
+        submissionImages,
         variants: variantsJson,
         category,
         stock,

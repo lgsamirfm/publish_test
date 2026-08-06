@@ -49,6 +49,17 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       data.price = price;
     }
     if (body.images !== undefined) data.images = String(body.images).trim();
+    if (body.submissionImages !== undefined) {
+      const raw = String(body.submissionImages).trim();
+      data.submissionImages = raw
+        ? raw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .slice(0, 6)
+            .join(",")
+        : "";
+    }
     if (body.variants !== undefined) {
       try {
         const v = Array.isArray(body.variants) ? body.variants : [];

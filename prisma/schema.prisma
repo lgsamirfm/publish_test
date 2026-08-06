@@ -25,17 +25,18 @@ model User {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  price       Int
-  images      String   @default("") // comma-separated image URLs
-  variants    String   @default("[]") // JSON array of {name, color?}
-  category    String   @default("عمومی")
-  stock       Int      @default(0)
-  featured    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  description      String
+  price            Int
+  images           String   @default("") // comma-separated image URLs
+  submissionImages String   @default("") // comma-separated image URLs (max 6) — "ارسالی های شما"
+  variants         String   @default("[]") // JSON array of {name, color?}
+  category         String   @default("عمومی")
+  stock            Int      @default(0)
+  featured         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Pattern {

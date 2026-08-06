@@ -5,6 +5,7 @@ import { ProductCard } from "@/components/product-card";
 import { Price } from "@/components/price";
 import { SectionHeading } from "@/components/section-heading";
 import { ProductGallery } from "@/components/product-gallery";
+import { SubmissionGallery } from "@/components/submission-gallery";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import {
   Breadcrumb,
@@ -21,6 +22,7 @@ import {
   Heart,
   ShieldCheck,
   Truck,
+  Images,
 } from "lucide-react";
 import { CottonBall } from "@/components/icons";
 import { toFa } from "@/lib/format";
@@ -61,6 +63,11 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const images = product.images?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const submissionImages =
+    product.submissionImages
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
 
   const related = (await db.product.findMany({
     where: {
@@ -180,6 +187,26 @@ export default async function ProductDetailPage({
           </div>
         </section>
       </div>
+
+      {submissionImages.length > 0 && (
+        <section className="mt-14" aria-label="ارسالی های شما">
+          <div className="mb-5 flex items-center gap-2">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+              <Images className="size-5 text-primary" />
+            </span>
+            <div className="flex flex-col">
+              <h2 className="text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
+                ارسالی های شما
+              </h2>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                عکس‌هایی که مشتریان از محصول بافته‌شده برای ما فرستاده‌اند.
+              </p>
+            </div>
+          </div>
+          <SubmissionGallery images={submissionImages} alt={product.name} />
+        </section>
+      )}
+
 
       {related.length > 0 && (
         <section className="mt-16" aria-label="محصولات مرتبط">
