@@ -9,11 +9,13 @@ export function ImageFallback({
   alt,
   className,
   rounded = "rounded-2xl",
+  loading = "lazy",
 }: {
   src?: string | null;
   alt: string;
   className?: string;
   rounded?: string;
+  loading?: "lazy" | "eager";
 }) {
   const [failed, setFailed] = useState(false);
   const showFallback = !src || failed;
@@ -38,7 +40,7 @@ export function ImageFallback({
     <img
       src={src}
       alt={alt}
-      loading="lazy"
+      loading={loading}
       onError={() => setFailed(true)}
       className={cn("object-cover", rounded, className)}
     />
