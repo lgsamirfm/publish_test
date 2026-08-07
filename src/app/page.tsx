@@ -1,19 +1,14 @@
 import Link from "next/link";
 import {
-  Sparkles,
   Heart,
   Truck,
   ShieldCheck,
-  Flower2,
-  Home as HomeIcon,
-  FileText,
   ArrowLeft,
   Mail,
   Gift,
-  Palette,
+  ShoppingBag,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { toFa } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,24 +16,18 @@ import { SectionHeading } from "@/components/section-heading";
 import { ProductCard } from "@/components/product-card";
 import { PatternCard } from "@/components/pattern-card";
 import { ImageFallback } from "@/components/image-fallback";
-import { CrochetHook, CottonBall } from "@/components/icons";
+import { HeroCarousel } from "@/components/hero-carousel";
+import { CottonBall } from "@/components/icons";
 import { MotionDiv } from "@/components/motion-div";
 import type { Product, Pattern } from "@/lib/types";
 
-const STATS = [
-  { value: 200, suffix: "+", label: "عروسک و کلیدچین" },
-  { value: 1000, suffix: "+", label: "مشتری راضی" },
-  { value: 8, suffix: " سال", label: "تجربهٔ کروشه" },
-  { value: 100, suffix: "٪", label: "دست‌بافت" },
-];
-
 const CATEGORIES = [
-  { label: "عروسک و آمیگورومی", href: "/products?category=عروسک و آمیگورومی", Icon: Gift },
-  { label: "کلیدچین", href: "/products?category=کلیدچین", Icon: Sparkles },
-  { label: "گل کروشه", href: "/products?category=گل کروشه", Icon: Flower2 },
-  { label: "باجه گل", href: "/products?category=باجه گل", Icon: Heart },
-  { label: "لوازم تزئینی", href: "/products?category=لوازم تزئینی", Icon: HomeIcon },
-  { label: "الگوی کروشه", href: "/patterns", Icon: FileText },
+  { label: "عروسک و آمیگورومی", href: "/products?category=عروسک و آمیگورومی", image: "/images/product-bear.png" },
+  { label: "کلیدچین", href: "/products?category=کلیدچین", image: "/images/product-heart-keychain.png" },
+  { label: "گل کروشه", href: "/products?category=گل کروشه", image: "/images/product-rose.png" },
+  { label: "باجه گل", href: "/products?category=باجه گل", image: "/images/product-bouquet.png" },
+  { label: "لوازم تزئینی", href: "/products?category=لوازم تزئینی", image: "/images/product-plantpot.png" },
+  { label: "الگوی کروشه", href: "/patterns", image: "/images/pattern-bear.png" },
 ];
 
 const FEATURES = [
@@ -102,61 +91,47 @@ export default async function HomePage() {
       <section className="relative overflow-hidden bg-accent/40">
         <div className="bg-knit absolute inset-0 opacity-60" aria-hidden />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-          <div className="grid items-center gap-10 lg:grid-cols-2">
+          <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.15fr]">
             <MotionDiv
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
-              className="flex flex-col gap-5 text-right"
+              className="flex flex-col gap-6 text-right"
             >
-              <Badge
-                variant="secondary"
-                className="w-fit gap-1.5 rounded-full bg-secondary/70 px-3 py-1.5 text-xs font-medium text-secondary-foreground"
-              >
-                <Sparkles className="size-3.5" />
-                کروشه دستی ایران
-              </Badge>
-              <h1 className="text-balance text-3xl font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                گرمیِ هنر کروشه را{" "}
-                <span className="text-primary">زنده می‌کنم</span>
-              </h1>
-              <p className="max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
-                سلام! من عروسک‌ها و کلیدچین‌های بافخانه رو با حوصله و عشق
-                کروشه می‌کنم. هر تکی از اونا، یه تیکه از قلب منه و امیدوارم
-                لبخند رو لبونتون بیاره.
-              </p>
-              <div className="mt-2 flex flex-wrap gap-3">
+              <SectionHeading
+                eyebrow="دسته‌بندی‌ها"
+                title="دنبال چی می‌گردی؟"
+                subtitle="عروسک‌ها، کلیدچین‌ها و گل‌های کروشه را بر اساس دسته مرور کنید."
+              />
+              <div className="flex justify-start">
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/products">
-                    <ShoppingBagIcon />
-                    مشاهده محصولات
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="gap-2 bg-background"
-                >
-                  <Link href="/patterns">
-                    <FileText className="size-4" />
-                    الگوی کروشه
+                    همه محصولات
+                    <ShoppingBag className="size-5" />
                   </Link>
                 </Button>
               </div>
-              <dl className="mt-8 grid grid-cols-2 gap-4 border-t border-border/60 pt-6 sm:grid-cols-4">
-                {STATS.map((s) => (
-                  <div key={s.label} className="flex flex-col gap-1">
-                    <dt className="text-2xl font-extrabold text-primary sm:text-3xl">
-                      {toFa(s.value)}
-                      {s.suffix}
-                    </dt>
-                    <dd className="text-xs text-muted-foreground sm:text-sm">
-                      {s.label}
-                    </dd>
-                  </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                {CATEGORIES.map(({ label, href, image }) => (
+                  <Link
+                    key={label}
+                    href={href}
+                    className="group flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                  >
+                    <span className="relative block size-14 overflow-hidden rounded-2xl bg-accent">
+                      <ImageFallback
+                        src={image}
+                        alt={label}
+                        rounded="rounded-none"
+                        className="size-full transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </span>
+                    <span className="text-sm font-medium text-foreground">
+                      {label}
+                    </span>
+                  </Link>
                 ))}
-              </dl>
+              </div>
             </MotionDiv>
             <MotionDiv
               initial={{ opacity: 0, scale: 0.95 }}
@@ -164,26 +139,7 @@ export default async function HomePage() {
               transition={{ duration: 0.7, delay: 0.1 }}
               className="relative"
             >
-              <div className="absolute -inset-3 -z-10 rounded-[2rem] bg-primary/10 blur-2xl" />
-              <div className="overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-xl">
-                <ImageFallback
-                  src="/images/hero.png"
-                  alt="بافخانه — عروسک و کلیدچین کروشه"
-                  rounded="rounded-none"
-                  className="aspect-[16/10] w-full"
-                />
-              </div>
-              <div className="absolute -bottom-4 right-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <CrochetHook className="size-5" />
-                </span>
-                <div className="leading-tight">
-                  <p className="text-sm font-bold text-foreground">بافخانه</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    خانهٔ کروشه دستی
-                  </p>
-                </div>
-              </div>
+              <HeroCarousel />
             </MotionDiv>
           </div>
         </div>
@@ -222,39 +178,6 @@ export default async function HomePage() {
                 cta="مشاهده همه محصولات"
               />
             )}
-          </MotionDiv>
-        </div>
-      </section>
-
-      {/* CATEGORIES */}
-      <section className="bg-secondary/30 py-16 sm:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <MotionDiv {...fadeUp}>
-            <SectionHeading
-              align="center"
-              eyebrow="دسته‌بندی‌ها"
-              title="دنبال چی می‌گردی؟"
-              subtitle="عروسک‌ها، کلیدچین‌ها و گل‌های کروشه را بر اساس دسته مرور کنید."
-            />
-          </MotionDiv>
-          <MotionDiv
-            {...fadeUp}
-            className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6"
-          >
-            {CATEGORIES.map(({ label, href, Icon }) => (
-              <Link
-                key={label}
-                href={href}
-                className="group flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
-              >
-                <span className="flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  <Icon className="size-7" />
-                </span>
-                <span className="text-sm font-medium text-foreground">
-                  {label}
-                </span>
-              </Link>
-            ))}
           </MotionDiv>
         </div>
       </section>
@@ -421,25 +344,6 @@ export default async function HomePage() {
         </div>
       </section>
     </div>
-  );
-}
-
-function ShoppingBagIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4"
-      aria-hidden
-    >
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-      <path d="M3 6h18" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
   );
 }
 
