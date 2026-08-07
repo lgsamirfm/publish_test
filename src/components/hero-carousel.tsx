@@ -119,7 +119,7 @@ export function HeroCarousel() {
       />
       <Carousel
         setApi={setApi}
-        opts={{ loop: true }}
+        opts={{ loop: true, direction: "rtl" }}
         onMouseEnter={stopAutoplay}
         onMouseLeave={startAutoplay}
         className="overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-xl"
