@@ -1,12 +1,8 @@
 import Link from "next/link";
 import {
-  Sparkles,
   Heart,
   Truck,
   ShieldCheck,
-  Flower2,
-  Home as HomeIcon,
-  FileText,
   ArrowLeft,
   Mail,
   Gift,
@@ -25,12 +21,12 @@ import { MotionDiv } from "@/components/motion-div";
 import type { Product, Pattern } from "@/lib/types";
 
 const CATEGORIES = [
-  { label: "عروسک و آمیگورومی", href: "/products?category=عروسک و آمیگورومی", Icon: Gift },
-  { label: "کلیدچین", href: "/products?category=کلیدچین", Icon: Sparkles },
-  { label: "گل کروشه", href: "/products?category=گل کروشه", Icon: Flower2 },
-  { label: "باجه گل", href: "/products?category=باجه گل", Icon: Heart },
-  { label: "لوازم تزئینی", href: "/products?category=لوازم تزئینی", Icon: HomeIcon },
-  { label: "الگوی کروشه", href: "/patterns", Icon: FileText },
+  { label: "عروسک و آمیگورومی", href: "/products?category=عروسک و آمیگورومی", image: "/images/product-bear.png" },
+  { label: "کلیدچین", href: "/products?category=کلیدچین", image: "/images/product-heart-keychain.png" },
+  { label: "گل کروشه", href: "/products?category=گل کروشه", image: "/images/product-rose.png" },
+  { label: "باجه گل", href: "/products?category=باجه گل", image: "/images/product-bouquet.png" },
+  { label: "لوازم تزئینی", href: "/products?category=لوازم تزئینی", image: "/images/product-plantpot.png" },
+  { label: "الگوی کروشه", href: "/patterns", image: "/images/pattern-bear.png" },
 ];
 
 const FEATURES = [
@@ -107,14 +103,19 @@ export default async function HomePage() {
                 subtitle="عروسک‌ها، کلیدچین‌ها و گل‌های کروشه را بر اساس دسته مرور کنید."
               />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                {CATEGORIES.map(({ label, href, Icon }) => (
+                {CATEGORIES.map(({ label, href, image }) => (
                   <Link
                     key={label}
                     href={href}
                     className="group flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
                   >
-                    <span className="flex size-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                      <Icon className="size-6" />
+                    <span className="relative block size-14 overflow-hidden rounded-2xl bg-accent">
+                      <ImageFallback
+                        src={image}
+                        alt={label}
+                        rounded="rounded-none"
+                        className="size-full transition-transform duration-300 group-hover:scale-110"
+                      />
                     </span>
                     <span className="text-sm font-medium text-foreground">
                       {label}
