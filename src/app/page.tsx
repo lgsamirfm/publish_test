@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Mail,
   Gift,
+  ShoppingBag,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,14 @@ export default async function HomePage() {
                 title="دنبال چی می‌گردی؟"
                 subtitle="عروسک‌ها، کلیدچین‌ها و گل‌های کروشه را بر اساس دسته مرور کنید."
               />
+              <div className="flex justify-start">
+                <Button asChild size="lg" className="gap-2">
+                  <Link href="/products">
+                    همه محصولات
+                    <ShoppingBag className="size-5" />
+                  </Link>
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 {CATEGORIES.map(({ label, href, image }) => (
                   <Link
