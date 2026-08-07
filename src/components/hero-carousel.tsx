@@ -173,8 +173,9 @@ export function HeroCarousel() {
       </Carousel>
 
       {/* Floating brand badge — outside the carousel so it isn't clipped
-          by the carousel's overflow-hidden and sits in front of it */}
-      <div className="absolute -bottom-4 right-6 z-10 flex items-center gap-3 rounded-2xl border border-border/70 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
+          by the carousel's overflow-hidden and sits in front of it.
+          Hidden on small phones (< 640px). */}
+      <div className="absolute -bottom-4 right-6 z-10 hidden items-center gap-3 rounded-2xl border border-border/70 bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:flex">
         <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <CrochetHook className="size-5" />
         </span>
