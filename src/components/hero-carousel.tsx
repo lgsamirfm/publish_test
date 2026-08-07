@@ -170,18 +170,19 @@ export function HeroCarousel() {
             />
           ))}
         </div>
-
-        {/* Floating brand badge (kept from the previous hero design) */}
-        <div className="absolute -bottom-4 right-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <CrochetHook className="size-5" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-sm font-bold text-foreground">بافخانه</p>
-            <p className="text-[11px] text-muted-foreground">خانهٔ کروشه دستی</p>
-          </div>
-        </div>
       </Carousel>
+
+      {/* Floating brand badge — outside the carousel so it isn't clipped
+          by the carousel's overflow-hidden and sits in front of it */}
+      <div className="absolute -bottom-4 right-6 z-10 flex items-center gap-3 rounded-2xl border border-border/70 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <CrochetHook className="size-5" />
+        </span>
+        <div className="leading-tight">
+          <p className="text-sm font-bold text-foreground">بافخانه</p>
+          <p className="text-[11px] text-muted-foreground">خانهٔ کروشه دستی</p>
+        </div>
+      </div>
     </div>
   );
 }
