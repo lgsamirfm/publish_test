@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
   Carousel,
@@ -21,6 +22,44 @@ const SLIDES = [
 
 /** How long each photo stays on screen before auto-changing (ms). */
 const AUTOPLAY_INTERVAL = 5000;
+
+/**
+ * One carousel slide.
+ *
+ * Images are served through Next's image optimizer (fresh URL + re-encoded
+ * with the correct content type), fetched eagerly, and preloaded — so all
+ * three photos are guaranteed to be loaded regardless of browser or cache
+ * state. If an image still fails, the site's branded placeholder is shown
+ * instead of a blank area.
+ */
+function HeroSlide({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <ImageFallback
+        src={null}
+        alt={alt}
+        rounded="rounded-none"
+        className="aspect-[4/3] w-full"
+      />
+    );
+  }
+
+  return (
+    <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(min-width: 1024px) 55vw, 100vw"
+        loading="eager"
+        onError={() => setFailed(true)}
+        className="object-cover"
+      />
+    </div>
+  );
+}
 
 export function HeroCarousel() {
   const [api, setApi] = useState<CarouselApi | null>(null);
@@ -70,6 +109,10 @@ export function HeroCarousel() {
 
   return (
     <div className="relative">
+      {/* Preload the off-screen slides so the browser always fetches them. */}
+      <link rel="preload" as="image" href={SLIDES[1].src} />
+      <link rel="preload" as="image" href={SLIDES[2].src} />
+
       <div
         className="absolute -inset-3 -z-10 rounded-[2rem] bg-primary/10 blur-2xl"
         aria-hidden
@@ -84,13 +127,7 @@ export function HeroCarousel() {
         <CarouselContent className="ml-0">
           {SLIDES.map((slide) => (
             <CarouselItem key={slide.src} className="pl-0">
-              <ImageFallback
-                src={slide.src}
-                alt={slide.alt}
-                rounded="rounded-none"
-                loading="eager"
-                className="aspect-[4/3] w-full"
-              />
+              <HeroSlide src={slide.src} alt={slide.alt} />
             </CarouselItem>
           ))}
         </CarouselContent>
