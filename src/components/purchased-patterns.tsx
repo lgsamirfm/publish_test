@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Scissors, Eye, Loader2, FileText, X, Lock, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,62 +57,6 @@ export default function PurchasedPatterns() {
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(0.40);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const applyZoom = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    try {
-      const doc = iframe.contentDocument;
-      if (!doc) return;
-
-      // Remove any previously injected zoom style
-      const existingStyle = doc.getElementById("__pattern-zoom");
-      if (existingStyle) existingStyle.remove();
-
-      // Inject a style that zooms the <html> element content
-      const style = doc.createElement("style");
-      style.id = "__pattern-zoom";
-      style.textContent = `
-        html {
-          zoom: ${zoom};
-        }
-        /* Firefox fallback (supports zoom since v126, but just in case) */
-        @supports not (zoom: 1) {
-          html {
-            transform: scale(${zoom});
-            transform-origin: top left;
-            width: ${100 / zoom}%;
-            height: ${100 / zoom}%;
-          }
-        }
-      `;
-      doc.head.appendChild(style);
-
-      // Apply protection directly via DOM properties (works even with
-      // sandbox="allow-same-origin" since no <script> runs inside the iframe)
-      doc.oncontextmenu = () => false;
-      doc.ondragstart = () => false;
-      doc.onselectstart = () => false;
-
-      // Block Ctrl+S and Ctrl+U inside the iframe
-      const blockKeys = (e: KeyboardEvent) => {
-        if (e.ctrlKey && (e.key === "s" || e.key === "S" || e.key === "u" || e.key === "U")) {
-          e.preventDefault();
-        }
-      };
-      // Remove old listener if re-applying
-      doc.removeEventListener("keydown", blockKeys);
-      doc.addEventListener("keydown", blockKeys);
-    } catch {
-      // Cross-origin or not yet loaded — ignore
-    }
-  }, [zoom]);
-
-  // Re-apply zoom whenever it changes (and iframe is already loaded)
-  useEffect(() => {
-    applyZoom();
-  }, [applyZoom]);
 
   useEffect(() => {
     async function load() {
@@ -338,14 +282,22 @@ export default function PurchasedPatterns() {
                   style={{ height: "70vh" }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <iframe
-                    ref={iframeRef}
-                    src={`/api/user/patterns/${content.id}/html`}
-                    className="w-full h-[70vh] rounded-xl"
-                    title={content.title}
-                    sandbox="allow-same-origin"
-                    onLoad={applyZoom}
-                  />
+                  <div
+                    style={{
+                      width: `${100 / zoom}%`,
+                      height: `${70 / zoom}vh`,
+                      transform: `scale(${zoom})`,
+                      transformOrigin: "top right",
+                    }}
+                  >
+                    <iframe
+                      src={`/api/user/patterns/${content.id}/html`}
+                      className="size-full rounded-xl"
+                      title={content.title}
+                      sandbox=""
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 </div>
               ) : (
                 /* No HTML file — show description & images fallback */

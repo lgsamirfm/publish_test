@@ -1,31 +1,48 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { generateResetCode, hashResetCode, requireAdmin } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+} from "@/lib/api";
 
 export async function POST(
-  _req: Request,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
+    const ip = await getClientIp();
+    const limit = await rateLimit(
+      `admin-reset:${admin.id}:${ip}`,
+      10,
+      60 * 60_000
+    );
+    if (!limit.success) return rateLimitError(limit);
+
     const { id } = await params;
+    if (!id || id.length > 128) return jsonError("شناسه کاربر نامعتبر است.", 400);
 
     const user = await db.user.findUnique({ where: { id } });
-    if (!user) {
-      return NextResponse.json({ error: "کاربر یافت نشد." }, { status: 404 });
-    }
+    if (!user) return jsonError("کاربر یافت نشد.", 404);
 
-    // 6-digit random code with 2-minute expiry
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetTokenExpiry = new Date(Date.now() + 2 * 60 * 1000);
-
+    const code = generateResetCode();
     await db.user.update({
       where: { id: user.id },
-      data: { resetToken: code, resetTokenExpiry },
+      data: {
+        resetToken: hashResetCode(user.phone, code),
+        resetTokenExpiry: new Date(Date.now() + 2 * 60_000),
+      },
     });
 
-    return NextResponse.json({ code, phone: user.phone });
-  } catch {
-    return NextResponse.json({ error: "خطای سرور." }, { status: 500 });
+    // The code is intentionally shown only to an authenticated administrator,
+    // for support-assisted recovery. It is hashed at rest.
+    return jsonOk({ code, phone: user.phone });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

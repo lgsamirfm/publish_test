@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isValidIranianPhone, normalizeIranianPhone } from "@/lib/format";
+import { safeInternalPath } from "@/lib/navigation";
 
 export default function SignupPage() {
   const params = useSearchParams();
@@ -37,8 +38,8 @@ export default function SignupPage() {
     if (!name.trim()) return toast.error("نام را وارد کنید.");
     if (!isValidIranianPhone(normalizedPhone))
       return toast.error("شماره موبایل معتبر نیست. (شماره ۱۱ رقمی با 09)");
-    if (password.length < 6)
-      return toast.error("گذرواژه باید حداقل ۶ نویسه باشد.");
+    if (password.length < 12)
+      return toast.error("گذرواژه باید حداقل ۱۲ نویسه باشد.");
     if (password !== confirm)
       return toast.error("تکرار گذرواژه با گذرواژه یکسان نیست.");
 
@@ -64,11 +65,7 @@ export default function SignupPage() {
 
       toast.success("حساب شما ساخته شد. خوش آمدید!");
 
-      const safeNext =
-        next && next.startsWith("/") && !next.startsWith("//")
-          ? next
-          : "/account";
-      window.location.href = safeNext;
+      window.location.href = safeInternalPath(next, "/account");
     } catch {
       toast.error("خطای شبکه. دوباره تلاش کنید.");
       setLoading(false);
@@ -128,7 +125,7 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 required
                 className="text-left"
-                placeholder="حداقل ۶ نویسه"
+                placeholder="حداقل ۱۲ نویسه"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

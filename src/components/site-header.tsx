@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ShoppingCart,
@@ -76,6 +76,7 @@ const NAV = [
 
 export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(initialUser ?? null);
   const [open, setOpen] = useState(false);
   const mounted = useMounted();
@@ -95,7 +96,8 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
     await fetch("/api/auth/logout", { method: "POST" });
     clearCart();
     setUser(null);
-    window.location.href = "/";
+    router.replace("/");
+    router.refresh();
   }
 
   const [currentCategory, setCurrentCategory] = useState("");

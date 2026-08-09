@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isValidIranianPhone, normalizeIranianPhone } from "@/lib/format";
+import { safeInternalPath } from "@/lib/navigation";
 
 export default function LoginPage() {
   const params = useSearchParams();
@@ -54,15 +55,8 @@ export default function LoginPage() {
       toast.success("خوش آمدید!");
 
       const role = data?.user?.role;
-      const safeNext =
-        next && next.startsWith("/") && !next.startsWith("//") ? next : null;
-      const dest = safeNext
-        ? safeNext
-        : role === "ADMIN"
-          ? "/admin"
-          : "/account";
-
-      window.location.href = dest;
+      const fallback = role === "ADMIN" ? "/admin" : "/account";
+      window.location.href = safeInternalPath(next, fallback);
     } catch {
       toast.error("خطای شبکه. دوباره تلاش کنید.");
       setLoading(false);

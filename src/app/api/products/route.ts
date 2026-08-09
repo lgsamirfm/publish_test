@@ -2,20 +2,30 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
 import { toEnDigits } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import { normalizeImageList, normalizeVariants } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-/* ---------- GET /api/products ---------- */
 export async function GET(req: NextRequest) {
   try {
-    const sp = req.nextUrl.searchParams;
-    const q = sp.get("q")?.trim() || "";
-    const category = sp.get("category");
-    const featured = sp.get("featured");
-    const sort = sp.get("sort") || "newest";
+    const search = req.nextUrl.searchParams;
+    const q = search.get("q")?.trim() || "";
+    const category = search.get("category")?.trim() || "";
+    const featured = search.get("featured");
+    const sort = search.get("sort") || "newest";
+
+    if (q.length > 100 || category.length > 100) {
+      return jsonError("پارامتر جست‌وجو بسیار طولانی است.", 400);
+    }
 
     const where: {
       name?: { contains: string };
@@ -30,104 +40,76 @@ export async function GET(req: NextRequest) {
       sort === "price-asc"
         ? { price: "asc" as const }
         : sort === "price-desc"
-        ? { price: "desc" as const }
-        : { createdAt: "desc" as const };
+          ? { price: "desc" as const }
+          : { createdAt: "desc" as const };
 
-    const products = (await db.product.findMany({
-      where,
-      orderBy,
-    })) as Product[];
-
+    const products = await db.product.findMany({ where, orderBy, take: 200 });
     return jsonOk({ products });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-/* ---------- POST /api/products (admin) ---------- */
 export async function POST(req: NextRequest) {
   try {
-    await requireAdmin();
-
+    const admin = await requireAdmin();
     const ip = await getClientIp();
-    const rl = await rateLimit("product-create-" + ip, 20, 60_000);
-    if (!rl.success) {
-      return jsonError("درخواست بیش از حد. بعداً تلاش کنید.", 429);
-    }
+    const limit = await rateLimit(`product-create:${admin.id}:${ip}`, 20, 60 * 60_000);
+    if (!limit.success) return rateLimitError(limit);
 
-    const body = await req.json().catch(() => ({}));
-    const name = String(body.name ?? "").trim();
-    const description = String(body.description ?? "").trim();
+    const parsed = await readJsonBody<Record<string, unknown>>(req, 32 * 1024);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const description =
+      typeof body.description === "string" ? body.description.trim() : "";
+    const category =
+      typeof body.category === "string" ? body.category.trim() || "عمومی" : "عمومی";
     const price = Math.floor(Number(body.price));
-    const images = String(body.images ?? "").trim();
-    const category = String(body.category ?? "عمومی").trim() || "عمومی";
-    const stock = Math.max(0, Math.floor(Number(body.stock ?? 0)));
-    const featured = Boolean(body.featured);
-    // Days needed to make the product when it is out of stock («قابل سفارش (۷ روز کاری)»)
+    const stock = Math.floor(Number(body.stock ?? 0));
+    const images = normalizeImageList(body.images, 10);
+    if (!images.ok) return jsonError(images.message, 400);
+    const submissionImages = normalizeImageList(body.submissionImages, 6);
+    if (!submissionImages.ok) return jsonError(submissionImages.message, 400);
+    const variants = normalizeVariants(body.variants);
+    if (!variants.ok) return jsonError(variants.message, 400);
+
     let productionDays = 7;
-    if (
-      body.productionDays !== undefined &&
-      body.productionDays !== null &&
-      String(body.productionDays).trim() !== ""
-    ) {
-      const pd = Math.floor(Number(toEnDigits(String(body.productionDays))));
-      if (!Number.isFinite(pd) || pd < 1 || pd > 365) {
-        return jsonError("مدت آماده‌سازی باید بین ۱ تا ۳۶۵ روز کاری باشد.", 400);
-      }
-      productionDays = pd;
-    }
-    // submissionImages: comma-separated URLs, max 6 photos (for "ارسالی های شما")
-    const rawSubmissionImages = String(body.submissionImages ?? "").trim();
-    const submissionImages = rawSubmissionImages
-      ? rawSubmissionImages
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .slice(0, 6)
-          .join(",")
-      : "";
-    // variants: array of {name, color?} -> store as JSON string.
-    let variantsJson = "[]";
-    try {
-      const v = Array.isArray(body.variants) ? body.variants : [];
-      const cleaned = v
-        .map((x: { name?: unknown; color?: unknown }) => ({
-          name: String(x?.name ?? "").trim(),
-          color: x?.color ? String(x.color) : undefined,
-        }))
-        .filter((x: { name: string }) => x.name);
-      variantsJson = JSON.stringify(cleaned);
-    } catch {
-      variantsJson = "[]";
+    if (body.productionDays !== undefined && String(body.productionDays).trim()) {
+      productionDays = Math.floor(Number(toEnDigits(String(body.productionDays))));
     }
 
     if (!name) return jsonError("نام محصول الزامی است.", 400);
     if (name.length > 200) return jsonError("نام محصول بسیار طولانی است.", 400);
     if (description.length > 5000) return jsonError("توضیحات بسیار طولانی است.", 400);
-    if (images.length > 2000) return jsonError("لینک تصاویر بسیار طولانی است.", 400);
-    if (submissionImages.length > 2000) return jsonError("لینک تصاویر ارسالی بسیار طولانی است.", 400);
     if (category.length > 100) return jsonError("نام دسته بسیار طولانی است.", 400);
-    if (!Number.isFinite(price) || price <= 0) {
+    if (!Number.isSafeInteger(price) || price <= 0 || price > 2_000_000_000) {
       return jsonError("قیمت معتبر نیست.", 400);
     }
+    if (!Number.isSafeInteger(stock) || stock < 0 || stock > 1_000_000) {
+      return jsonError("موجودی معتبر نیست.", 400);
+    }
+    if (!Number.isSafeInteger(productionDays) || productionDays < 1 || productionDays > 365) {
+      return jsonError("مدت آماده‌سازی باید بین ۱ تا ۳۶۵ روز کاری باشد.", 400);
+    }
 
-    const product = (await db.product.create({
+    const product = await db.product.create({
       data: {
         name,
         description,
         price,
-        images,
-        submissionImages,
-        variants: variantsJson,
+        images: images.value,
+        submissionImages: submissionImages.value,
+        variants: variants.value,
         category,
         stock,
         productionDays,
-        featured,
+        featured: body.featured === true,
       },
-    })) as Product;
-
+    });
     return jsonOk({ product }, 201);
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

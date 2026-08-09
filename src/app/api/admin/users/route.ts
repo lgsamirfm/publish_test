@@ -10,6 +10,7 @@ export async function GET() {
 
     const users = await db.user.findMany({
       orderBy: { createdAt: "desc" },
+      take: 1000,
       select: {
         id: true,
         name: true,

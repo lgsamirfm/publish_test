@@ -7,7 +7,11 @@ import { db } from "@/lib/db";
  */
 export async function getOwnedPatternIds(userId: string): Promise<string[]> {
   const paidOrders = await db.order.findMany({
-    where: { userId, paymentStatus: "PAID" },
+    where: {
+      userId,
+      paymentStatus: "PAID",
+      status: { not: "CANCELLED" },
+    },
     select: {
       items: {
         select: { itemType: true, itemId: true },

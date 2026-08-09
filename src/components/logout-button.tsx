@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -18,13 +19,15 @@ export function LogoutButton({
   size = "default",
   label = "خروج",
 }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleLogout() {
     setLoading(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/";
+      router.replace("/");
+      router.refresh();
     } catch {
       setLoading(false);
       toast.error("خروج با خطا مواجه شد. دوباره تلاش کنید.");

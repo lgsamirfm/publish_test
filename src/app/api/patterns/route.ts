@@ -2,22 +2,30 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
+import { normalizeContentReference, normalizeImageList } from "@/lib/validation";
 
 const DIFFICULTIES = ["مبتدی", "متوسط", "پیشرفته"] as const;
 
-/* GET /api/patterns?q=&difficulty=&featured=&sort= -> { patterns } */
 export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const q = url.searchParams.get("q")?.trim() || "";
-    const difficulty = url.searchParams.get("difficulty")?.trim() || "";
-    const featured = url.searchParams.get("featured");
-    const sort = url.searchParams.get("sort")?.trim() || "newest";
+    const search = req.nextUrl.searchParams;
+    const q = search.get("q")?.trim() || "";
+    const difficulty = search.get("difficulty")?.trim() || "";
+    const featured = search.get("featured");
+    const sort = search.get("sort")?.trim() || "newest";
+    if (q.length > 100) return jsonError("عبارت جست‌وجو بسیار طولانی است.", 400);
 
     const where: Record<string, unknown> = {};
     if (q) where.title = { contains: q };
-    if (difficulty && DIFFICULTIES.includes(difficulty as (typeof DIFFICULTIES)[number])) {
+    if (DIFFICULTIES.includes(difficulty as (typeof DIFFICULTIES)[number])) {
       where.difficulty = difficulty;
     }
     if (featured === "true") where.featured = true;
@@ -32,6 +40,7 @@ export async function GET(req: NextRequest) {
     const patterns = await db.pattern.findMany({
       where,
       orderBy,
+      take: 200,
       select: {
         id: true,
         title: true,
@@ -44,74 +53,68 @@ export async function GET(req: NextRequest) {
         gauge: true,
         featured: true,
         createdAt: true,
-        // pdfUrl intentionally excluded — security risk
       },
     });
-
     return jsonOk({ patterns });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-/* POST /api/patterns (ADMIN) -> { pattern } 201 */
 export async function POST(req: NextRequest) {
   try {
-    await requireAdmin();
-
+    const admin = await requireAdmin();
     const ip = await getClientIp();
-    const rl = await rateLimit("pattern-create-" + ip, 20, 60000);
-    if (!rl.success) return jsonError("درخواست بیش از حد.", 429);
+    const limit = await rateLimit(`pattern-create:${admin.id}:${ip}`, 20, 60 * 60_000);
+    if (!limit.success) return rateLimitError(limit);
 
-    const body = await req.json().catch(() => ({}));
-    const {
-      title,
-      description,
-      price,
-      images,
-      difficulty,
-      yarnType,
-      needleSize,
-      gauge,
-      pdfUrl,
-      featured,
-    } = body as Record<string, unknown>;
+    const parsed = await readJsonBody<Record<string, unknown>>(req, 24 * 1024);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
-    if (typeof title !== "string" || !title.trim()) {
-      return jsonError("عنوان الگو الزامی است.", 422);
-    }
-    if (title.length > 200) return jsonError("عنوان الگو بسیار طولانی است.", 422);
-    const descriptionStr = typeof description === "string" ? description : "";
-    if (descriptionStr.length > 5000) return jsonError("توضیحات بسیار طولانی است.", 422);
-    const imagesStr = typeof images === "string" ? images : "";
-    if (imagesStr.length > 2000) return jsonError("لینک تصاویر بسیار طولانی است.", 422);
-    const priceNum = Math.floor(Number(price));
-    if (!Number.isFinite(priceNum) || priceNum < 0) {
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    const description = typeof body.description === "string" ? body.description : "";
+    const price = Math.floor(Number(body.price));
+    const images = normalizeImageList(body.images, 10);
+    if (!images.ok) return jsonError(images.message, 422);
+    const content = normalizeContentReference(body.pdfUrl);
+    if (!content.ok) return jsonError(content.message, 422);
+
+    if (!title || title.length > 200) return jsonError("عنوان الگو معتبر نیست.", 422);
+    if (description.length > 5000) return jsonError("توضیحات بسیار طولانی است.", 422);
+    if (!Number.isSafeInteger(price) || price < 0 || price > 2_000_000_000) {
       return jsonError("قیمت معتبر نیست.", 422);
     }
 
-    const diff =
-      typeof difficulty === "string" && DIFFICULTIES.includes(difficulty as (typeof DIFFICULTIES)[number])
-        ? difficulty
+    const difficulty =
+      typeof body.difficulty === "string" &&
+      DIFFICULTIES.includes(body.difficulty as (typeof DIFFICULTIES)[number])
+        ? body.difficulty
         : "متوسط";
+    const yarnType = typeof body.yarnType === "string" ? body.yarnType.trim() : "";
+    const needleSize =
+      typeof body.needleSize === "string" ? body.needleSize.trim() : "";
+    const gauge = typeof body.gauge === "string" ? body.gauge.trim() : "";
+    if (yarnType.length > 100 || needleSize.length > 100 || gauge.length > 200) {
+      return jsonError("مشخصات الگو بسیار طولانی است.", 422);
+    }
 
     const pattern = await db.pattern.create({
       data: {
-        title: title.trim(),
-        description: descriptionStr,
-        price: priceNum,
-        images: imagesStr,
-        difficulty: diff,
-        yarnType: typeof yarnType === "string" ? yarnType.slice(0, 100) : "",
-        needleSize: typeof needleSize === "string" ? needleSize.slice(0, 100) : "",
-        gauge: typeof gauge === "string" ? gauge.slice(0, 200) : "",
-        pdfUrl: typeof pdfUrl === "string" ? pdfUrl.slice(0, 500) : "",
-        featured: Boolean(featured),
+        title,
+        description,
+        price,
+        images: images.value,
+        difficulty,
+        yarnType,
+        needleSize,
+        gauge,
+        pdfUrl: content.value,
+        featured: body.featured === true,
       },
     });
-
     return jsonOk({ pattern }, 201);
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

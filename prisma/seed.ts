@@ -1,7 +1,15 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
 import crypto from "crypto";
 
-const prisma = new PrismaClient();
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error("DATABASE_URL is required for seeding.");
+const prisma = new PrismaClient({
+  adapter: new PrismaLibSQL({
+    url: databaseUrl,
+    authToken: process.env.DATABASE_AUTH_TOKEN,
+  }),
+});
 
 function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -12,42 +20,35 @@ function hashPassword(password: string): string {
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // ── Admin user ──────────────────────────────────────────
-  let admin = await prisma.user.findFirst({
-    where: { phone: "09120000000" },
-  });
+  // ── Optional initial admin (credentials must be operator-supplied) ──
+  const adminPhone = process.env.SEED_ADMIN_PHONE?.trim();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (adminPhone || adminPassword) {
+    if (!adminPhone || !/^09\d{9}$/.test(adminPhone)) {
+      throw new Error("SEED_ADMIN_PHONE must be a valid 11-digit Iranian mobile number.");
+    }
+    if (!adminPassword || adminPassword.length < 12 || adminPassword.length > 128) {
+      throw new Error("SEED_ADMIN_PASSWORD must contain 12 to 128 characters.");
+    }
 
-  if (!admin) {
-    admin = await prisma.user.create({
-      data: {
-        name: "مدیر بافخانه",
-        phone: "09120000000",
-        email: "admin@bafkhaneh.ir",
-        password: hashPassword("admin123"),
-        role: "ADMIN",
-      },
-    });
+    const existingAdmin = await prisma.user.findUnique({ where: { phone: adminPhone } });
+    if (!existingAdmin) {
+      await prisma.user.create({
+        data: {
+          name: process.env.SEED_ADMIN_NAME?.trim() || "مدیر بافخانه",
+          phone: adminPhone,
+          email: process.env.SEED_ADMIN_EMAIL?.trim() || "",
+          password: hashPassword(adminPassword),
+          role: "ADMIN",
+        },
+      });
+      console.log("  ✅ Initial admin created (password not logged)");
+    } else {
+      console.log("  ℹ️ Initial admin phone already exists; credentials were not changed");
+    }
+  } else {
+    console.log("  ℹ️ Admin creation skipped; set SEED_ADMIN_PHONE and SEED_ADMIN_PASSWORD");
   }
-  console.log(`  ✅ Admin: ${admin.phone} (password: admin123)`);
-
-  // ── Demo customer ───────────────────────────────────────
-  let customer = await prisma.user.findFirst({
-    where: { phone: "09121234567" },
-  });
-
-  if (!customer) {
-    customer = await prisma.user.create({
-      data: {
-        name: "مشتری تست",
-        phone: "09121234567",
-        email: "customer@test.com",
-        password: hashPassword("test123"),
-        role: "CUSTOMER",
-        address: "تهران، خیابان ولیعصر",
-      },
-    });
-  }
-  console.log(`  ✅ Customer: ${customer.phone} (password: test123)`);
 
   // ── Products ────────────────────────────────────────────
   const products = [
@@ -325,11 +326,7 @@ async function main() {
   }
   console.log(`  ✅ ${patterns.length} patterns checked/created`);
 
-  console.log("\n🎉 Seeding complete!");
-  console.log("─────────────────────────────────");
-  console.log("Admin login:    09120000000 / admin123");
-  console.log("Customer login: 09121234567 / test123");
-  console.log("─────────────────────────────────");
+  console.log("\n🎉 Seeding complete! No credentials were written to logs.");
 }
 
 main()
