@@ -194,7 +194,7 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
             <div className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs leading-6 text-foreground">
               <Download className="mt-0.5 size-4 shrink-0 text-primary" />
               <p>
-                این یک الگوی دیجیتال است. پس از تکمیل خرید، فایل PDF الگو در حساب
+                این یک الگوی دیجیتال است. پس از تکمیل خرید، الگو در حساب
                 کاربری شما قابل خواندن خواهد بود.
               </p>
             </div>
@@ -222,7 +222,7 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
       <div className="mt-12 flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-5 shrink-0 text-primary" />
         <p>
-          همهٔ الگوهای بافخانه به‌صورت فایل دیجیتال (PDF) ارائه می‌شوند و شامل
+          همهٔ الگوهای بافخانه به‌صورت فایل دیجیتال ارائه می‌شوند و شامل
           راهنمای گام‌به‌گام، نوع نخ، شماره میل و گیج پیشنهادی هستند. در صورت
           نیاز به راهنمایی، با پشتیبانی ما در تماس باشید. تعداد کل الگوهای
           موجود: {toFa(totalPatterns)} الگو.

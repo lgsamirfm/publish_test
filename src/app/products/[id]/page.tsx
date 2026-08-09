@@ -20,12 +20,13 @@ import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle2,
   Heart,
+  Clock,
   ShieldCheck,
   Truck,
   Images,
 } from "lucide-react";
 import { CottonBall } from "@/components/icons";
-import { toFa } from "@/lib/format";
+import { toFa, madeToOrderLabel } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -143,9 +144,9 @@ export default async function ProductDetailPage({
                 موجود در انبار
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-destructive">
-                <span className="size-2 rounded-full bg-destructive" />
-                ناموجود
+              <span className="inline-flex items-center gap-1.5 text-amber-600">
+                <Clock className="size-4" />
+                قابل سفارش {madeToOrderLabel(product.productionDays)}
               </span>
             )}
           </div>
@@ -168,6 +169,7 @@ export default async function ProductDetailPage({
               price: product.price,
               images: product.images,
               stock: product.stock,
+              productionDays: product.productionDays,
               variants: product.variants,
             }}
           />

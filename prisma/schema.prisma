@@ -34,6 +34,7 @@ model Product {
   variants         String   @default("[]") // JSON array of {name, color?}
   category         String   @default("عمومی")
   stock            Int      @default(0)
+  productionDays   Int      @default(7) // days needed to make the product when out of stock («قابل سفارش»)
   featured         Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

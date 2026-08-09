@@ -7,6 +7,10 @@ import {
   Mail,
   Gift,
   ShoppingBag,
+  Instagram,
+  Send,
+  MessageCircle
+
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
@@ -69,7 +73,7 @@ export default async function HomePage() {
     }),
     db.pattern.findMany({
       where: { featured: true },
-      take: 3,
+      take: 4,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -165,7 +169,7 @@ export default async function HomePage() {
           </MotionDiv>
           <MotionDiv
             {...fadeUp}
-            className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+            className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
             {featuredProducts.length > 0 ? (
               featuredProducts.map((p) => (
@@ -202,7 +206,7 @@ export default async function HomePage() {
           </MotionDiv>
           <MotionDiv
             {...fadeUp}
-            className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
             {featuredPatterns.length > 0 ? (
               featuredPatterns.map((p) => (
@@ -250,59 +254,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ABOUT TEASER */}
-      <section className="py-16 sm:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <MotionDiv
-            {...fadeUp}
-            className="grid items-center gap-10 lg:grid-cols-2"
-          >
-            <div className="order-2 lg:order-1">
-              <div className="relative">
-                <div className="absolute -inset-3 -z-10 rounded-[2rem] bg-secondary/40 blur-2xl" />
-                <div className="overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-lg">
-                  <ImageFallback
-                    src="/images/about.png"
-                    alt="داستان بافخانه"
-                    rounded="rounded-none"
-                    className="aspect-[4/3] w-full"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="order-1 flex flex-col gap-5 text-right lg:order-2">
-              <Badge
-                variant="secondary"
-                className="w-fit gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
-              >
-                <Heart className="size-3.5" />
-                داستان ما
-              </Badge>
-              <h2 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-                از یک قلاب و نخ تا خانه‌ای از کروشه
-              </h2>
-              <p className="text-sm leading-8 text-muted-foreground sm:text-base">
-                بافخانه از عشق یه دختر به هنر کروشه آغاز شد. با یه قلاب و نخ‌های
-                رنگارنگ شروع کردم و امروز هر عروسکی که می‌سازم، یه تیکه از
-                قلبمه.
-              </p>
-              <p className="text-sm leading-8 text-muted-foreground sm:text-base">
-                من باور دارم کروشه دستی فقط یه محصول نیست؛ شادی و زیبایی‌ایه
-                که با هر گره در خانه‌ها جای می‌گیره.
-              </p>
-              <div>
-                <Button asChild size="lg" className="gap-2">
-                  <Link href="/about">
-                    بیشتر بدانید
-                    <ArrowLeft className="size-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </MotionDiv>
-        </div>
-      </section>
-
       {/* CTA BAND */}
       <section className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
@@ -315,30 +266,35 @@ export default async function HomePage() {
             </span>
             <div className="flex flex-col gap-3">
               <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                بیا با هم شادی بسازیم ✿
+               می‌خوای چیزی خاص بسازی؟ ✿
               </h2>
               <p className="mx-auto max-w-2xl text-sm leading-7 text-primary-foreground/85 sm:text-base">
-                با ثبت‌نام در بافخانه، از الگوهای رایگان، تخفیف‌های ویژه و
-                تازه‌ترین عروسک‌ها و کلیدچین‌ها باخبر شوید. هر سفارش یه هدیه از قلب منه.
+               برای عروسک، گل یا هر کالای سفارشی دلخواهت پیام بده؛ هر ایده‌ای رو با دست می‌سازم. همین حالا تماس بگیر.
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-col items-center gap-3">
               <Button
                 asChild
                 size="lg"
                 variant="secondary"
                 className="gap-2 bg-background text-foreground hover:bg-background/90"
               >
-                <Link href="/signup">ثبت‌نام رایگان</Link>
+                <Link href="/contact">تماس با من</Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="gap-2 border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                <Link href="/patterns">مرور الگوهای کروشه</Link>
-              </Button>
+              <div className="mt-4 flex gap-2">
+                  <a href="https://instagram.com/bafkhaneh" target="_blank" rel="noopener noreferrer" className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-orange-400 text-white shadow-sm transition-transform hover:scale-105">
+                    <Instagram className="size-5" />
+                  </a>
+                  <a href="https://t.me/bafkhaneh" target="_blank" rel="noopener noreferrer" className="flex size-11 items-center justify-center rounded-xl bg-[#229ED9] text-white shadow-sm transition-transform hover:scale-105">
+                    <Send className="size-5" />
+                  </a>
+                  <a href="https://wa.me/989123456789" target="_blank" rel="noopener noreferrer" className="flex size-11 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm transition-transform hover:scale-105">
+                    <MessageCircle className="size-5" />
+                  </a>
+                  <a href="mailto:hello@bafkhaneh.ir" className="flex size-11 items-center justify-center rounded-xl bg-secondary text-secondary-foreground shadow-sm transition-transform hover:scale-105">
+                    <Mail className="size-5" />
+                  </a>
+                </div>
             </div>
           </MotionDiv>
         </div>

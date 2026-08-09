@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import { toEnDigits } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     }
     if (body.stock !== undefined) {
       data.stock = Math.max(0, Math.floor(Number(body.stock) || 0));
+    }
+    if (body.productionDays !== undefined) {
+      const pd = Math.floor(Number(toEnDigits(String(body.productionDays))));
+      if (!Number.isFinite(pd) || pd < 1 || pd > 365) {
+        return jsonError("مدت آماده‌سازی باید بین ۱ تا ۳۶۵ روز کاری باشد.", 400);
+      }
+      data.productionDays = pd;
     }
     if (body.featured !== undefined) data.featured = Boolean(body.featured);
 

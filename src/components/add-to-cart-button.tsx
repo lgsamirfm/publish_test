@@ -5,7 +5,7 @@ import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/store/cart";
 import { toast } from "sonner";
-import { toFa } from "@/lib/format";
+import { toFa, madeToOrderLabel } from "@/lib/format";
 import { parseVariants, type ProductVariant } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ type Props = {
     price: number;
     images: string;
     stock?: number;
+    productionDays?: number; // days to make the product when out of stock
     variants?: string; // JSON string of ProductVariant[]
   };
 };
@@ -31,9 +32,10 @@ export function AddToCartButton({ product }: Props) {
 
   const outOfStock = (product.stock ?? 0) <= 0;
   const image = product.images?.split(",")[0] || "";
+  const productionDays = product.productionDays ?? 7;
 
   function handleAdd() {
-    if (outOfStock) return;
+    
     if (variants.length > 0 && !selectedVariant) {
       toast.error("لطفاً یک گزینه انتخاب کنید.");
       return;
@@ -49,7 +51,13 @@ export function AddToCartButton({ product }: Props) {
       },
       qty
     );
-    toast.success("به سبد خرید اضافه شد");
+    if (outOfStock) {
+      toast.success(
+        `به سبد خرید اضافه شد — آماده‌سازی حدود ${madeToOrderLabel(productionDays)} طول می‌کشد`
+      );
+    } else {
+      toast.success("به سبد خرید اضافه شد");
+    }
   }
 
   return (
@@ -106,7 +114,7 @@ export function AddToCartButton({ product }: Props) {
             className="size-9"
             aria-label="کاهش تعداد"
             onClick={() => setQty((q) => Math.max(1, q - 1))}
-            disabled={outOfStock || qty <= 1}
+            disabled={qty <= 1}
           >
             <Minus className="size-4" />
           </Button>
@@ -120,20 +128,17 @@ export function AddToCartButton({ product }: Props) {
             className="size-9"
             aria-label="افزایش تعداد"
             onClick={() => setQty((q) => Math.min(10, q + 1))}
-            disabled={outOfStock || qty >= 10}
+            disabled={qty >= 10}
           >
             <Plus className="size-4" />
           </Button>
         </div>
 
-        <Button
-          size="lg"
-          className="h-11 flex-1"
-          onClick={handleAdd}
-          disabled={outOfStock}
-        >
+        <Button size="lg" className="h-11 flex-1" onClick={handleAdd}>
           <ShoppingCart className="size-5" />
-          {outOfStock ? "ناموجود" : "افزودن به سبد"}
+          {outOfStock
+            ? `قابل سفارش ${madeToOrderLabel(productionDays)}`
+            : "افزودن به سبد"}
         </Button>
       </div>
     </div>

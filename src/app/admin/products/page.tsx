@@ -48,7 +48,7 @@ import {
   FeaturedBadge,
   StockBadge,
 } from "@/components/admin/status-badge";
-import { formatPrice, toFa } from "@/lib/format";
+import { formatPrice, toFa, toEnDigits } from "@/lib/format";
 import { parseVariants, type Product, type ProductVariant } from "@/lib/types";
 
 const CATEGORIES = [
@@ -70,6 +70,7 @@ type FormState = {
   variants: ProductVariant[]; // array of {name, color?}
   category: string;
   stock: string;
+  productionDays: string; // days to make the product when out of stock
   featured: boolean;
 };
 
@@ -82,6 +83,7 @@ const EMPTY: FormState = {
   variants: [],
   category: CATEGORIES[0],
   stock: "0",
+  productionDays: "7",
   featured: false,
 };
 
@@ -144,6 +146,7 @@ export default function AdminProductsPage() {
       variants: vars,
       category: p.category || CATEGORIES[0],
       stock: String(p.stock),
+      productionDays: String(p.productionDays ?? 7),
       featured: !!p.featured,
     });
     setDialogOpen(true);
@@ -215,12 +218,21 @@ export default function AdminProductsPage() {
     }
     const price = Number(form.price);
     const stock = Number(form.stock);
+    const productionDays = Number(form.productionDays);
     if (!Number.isFinite(price) || price < 0) {
       toast.error("قیمت معتبر نیست.");
       return;
     }
     if (!Number.isFinite(stock) || stock < 0) {
       toast.error("موجودی معتبر نیست.");
+      return;
+    }
+    if (
+      !Number.isFinite(productionDays) ||
+      productionDays < 1 ||
+      productionDays > 365
+    ) {
+      toast.error("مدت آماده‌سازی باید بین ۱ تا ۳۶۵ روز کاری باشد.");
       return;
     }
 
@@ -251,6 +263,7 @@ export default function AdminProductsPage() {
       variants: cleanVariants,
       category: form.category,
       stock: Math.round(stock),
+      productionDays: Math.round(productionDays),
       featured: form.featured,
     };
 
@@ -512,6 +525,35 @@ export default function AdminProductsPage() {
                 placeholder="۱۰"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="p-production-days">
+                مدت آماده‌سازی (روز کاری){" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="p-production-days"
+                inputMode="numeric"
+                value={form.productionDays}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    productionDays: toEnDigits(e.target.value).replace(
+                      /\D/g,
+                      ""
+                    ),
+                  })
+                }
+                placeholder="۷"
+              />
+              <p className="text-xs leading-5 text-muted-foreground">
+                وقتی موجودی صفر است، محصول به‌صورت «قابل سفارش» نمایش داده
+                می‌شود و این مدت به مشتری اعلام می‌شود — برای محصولاتی که پس از
+                سفارش بافته می‌شوند.
+              </p>
+            </div>
+
+
 
             <div className="space-y-1.5">
               <Label>دسته‌بندی</Label>

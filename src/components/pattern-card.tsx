@@ -24,7 +24,7 @@ export function PatternCard({ pattern }: { pattern: Pattern }) {
   return (
     <Card className="group overflow-hidden rounded-2xl border-border/70 bg-card p-0 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
       <Link href={`/patterns/${pattern.id}`} className="block">
-        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <div className="relative aspect-square overflow-hidden bg-muted">
           <ImageFallback
             src={image}
             alt={pattern.title}
@@ -41,13 +41,13 @@ export function PatternCard({ pattern }: { pattern: Pattern }) {
           </div>
         </div>
       </Link>
-      <div className="flex flex-col gap-2 p-4">
+     <div className="flex flex-col gap-1.5 p-2.5 sm:p-4">
         <Link href={`/patterns/${pattern.id}`}>
-          <h3 className="line-clamp-1 font-bold text-foreground transition-colors group-hover:text-primary">
+       <h3 className="line-clamp-1 font-bold text-foreground text-xs sm:text-base transition-colors group-hover:text-primary">
             {pattern.title}
           </h3>
         </Link>
-        <p className="line-clamp-2 text-xs leading-6 text-muted-foreground">
+        <p className="line-clamp-2 text-[10px] sm:text-xs leading-5 sm:leading-6 text-muted-foreground">
           {pattern.description}
         </p>
         {(pattern.yarnType || pattern.needleSize) && (
@@ -65,7 +65,7 @@ export function PatternCard({ pattern }: { pattern: Pattern }) {
           </div>
         )}
         <div className="mt-2 flex items-center justify-between gap-2">
-          <Price value={pattern.price} className="text-base" />
+          <Price value={pattern.price} className="text-xs sm:text-base" />
           <Button
             size="sm"
             onClick={() => {

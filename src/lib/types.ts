@@ -16,6 +16,7 @@ export type Product = {
   variants: string; // JSON string of ProductVariant[]
   category: string;
   stock: number;
+  productionDays: number; // days needed to make the product when out of stock («قابل سفارش»)
   featured: boolean;
   createdAt: Date | string;
 };

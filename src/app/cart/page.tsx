@@ -37,9 +37,11 @@ import { ImageFallback } from "@/components/image-fallback";
 import { Price } from "@/components/price";
 import { CheckoutSteps } from "@/components/checkout-steps";
 import { PaymentMethodSelector } from "@/components/payment-method-selector";
+import { ProvinceCombobox } from "@/components/province-combobox";
 
 import { useCart } from "@/store/cart";
-import { formatPrice, toFa } from "@/lib/format";
+import { formatPrice, toFa, toEnDigits } from "@/lib/format";
+import { IRAN_PROVINCES } from "@/lib/iran-province";
 import {
   SHIPPING_THRESHOLD,
   SHIPPING_COST,
@@ -56,6 +58,62 @@ type SessionUserLite = {
 };
 
 type Step = 0 | 1 | 2 | 3;
+
+/** Composes the structured address fields into the single address string the API expects. */
+function composeAddress(
+  province: string,
+  city: string,
+  street: string,
+  postalDigits: string
+): string {
+  const base = [province.trim(), city.trim(), street.trim()]
+    .filter(Boolean)
+    .join("، ");
+  return postalDigits ? `${base}، کد پستی: ${postalDigits}` : base;
+}
+
+/**
+ * Best-effort split of a previously saved free-form address into the new
+ * structured fields. Anything unrecognized is kept in "street" so that no
+ * saved data is lost.
+ */
+function parseSavedAddress(saved: string): {
+  province: string;
+  city: string;
+  street: string;
+  postalCode: string;
+} {
+  const parts = saved
+    .split(/[،,؛;\n]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  let province = "";
+  let postalCode = "";
+  const rest: string[] = [];
+
+  for (const part of parts) {
+    const normalized = toEnDigits(part).replace(/\s/g, "");
+    // A "کد پستی: …" fragment or a bare 10-digit number is the postal code
+    if (/کد\s?پستی/.test(part) || /^\d{10}$/.test(normalized)) {
+      const digits = normalized.replace(/\D/g, "");
+      if (digits) postalCode = digits;
+      continue;
+    }
+    rest.push(part);
+  }
+
+  if (rest.length > 0 && IRAN_PROVINCES.includes(rest[0])) {
+    province = rest.shift()!;
+  }
+
+  let city = "";
+  if (province && rest.length > 1) {
+    city = rest.shift()!;
+  }
+
+  return { province, city, street: rest.join("، "), postalCode };
+}
 
 export default function CartPage() {
   const router = useRouter();
@@ -76,7 +134,10 @@ export default function CartPage() {
   // Delivery form state
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [street, setStreet] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   const [note, setNote] = useState("");
 
   // Payment state
@@ -112,7 +173,14 @@ export default function CartPage() {
         if (u) {
           setName(u.name ?? "");
           setPhone(u.phone ?? "");
-          setAddress(u.address ?? "");
+          if (u.address) {
+            // Best-effort split of the previously saved free-form address
+            const parsed = parseSavedAddress(u.address);
+            setProvince(parsed.province);
+            setCity(parsed.city);
+            setStreet(parsed.street);
+            setPostalCode(parsed.postalCode);
+          }
         }
       })
       .catch(() => setUser(null))
@@ -181,6 +249,13 @@ export default function CartPage() {
       clearInterval(interval);
     };
   }, [waitingForPayment, pollingOrderId, clear]);
+
+  // Derived address values (composed from the structured fields)
+  const postalDigits = toEnDigits(postalCode).replace(/[\s-]/g, "");
+  const address = composeAddress(province, city, street, postalDigits);
+  const postalValid = /^\d{10}$/.test(postalDigits);
+  const addressComplete =
+    !!province && !!city.trim() && !!street.trim() && postalValid;
 
   // Hydration guard
   if (!mounted) {
@@ -285,7 +360,7 @@ export default function CartPage() {
       return (
         items.length > 0 &&
         !!phone.trim() &&
-        !!address.trim() &&
+        addressComplete &&
         !!user
       );
     }
@@ -322,8 +397,18 @@ export default function CartPage() {
       setStep(1);
       return;
     }
-    if (!address.trim()) {
-      toast.error("آدرس را وارد کنید.");
+    if (!province || !city.trim() || !street.trim()) {
+      toast.error("استان، شهر و خیابان را کامل وارد کنید.");
+      setStep(1);
+      return;
+    }
+    if (!postalDigits) {
+      toast.error("کد پستی را وارد کنید.");
+      setStep(1);
+      return;
+    }
+    if (!postalValid) {
+      toast.error("کد پستی باید ۱۰ رقم باشد.");
       setStep(1);
       return;
     }
@@ -601,18 +686,62 @@ export default function CartPage() {
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="address">
-                      آدرس کامل <span className="text-destructive">*</span>
-                    </Label>
-                    <Textarea
-                      id="address"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="استان، شهر، خیابان، پلاک و کد پستی"
-                      rows={3}
-                      required
-                    />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="province">
+                        استان <span className="text-destructive">*</span>
+                      </Label>
+                      <ProvinceCombobox
+                        id="province"
+                        value={province}
+                        onChange={setProvince}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="city">
+                        شهر <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="city"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="مثلاً: شیراز"
+                        autoComplete="address-level2"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="street">
+                        خیابان <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="street"
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        placeholder="نام خیابان، کوچه، پلاک و واحد"
+                        autoComplete="street-address"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="postal-code">
+                        کد پستی <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="postal-code"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value)}
+                        placeholder="۱۲۳۴۵۶۷۸۹۰"
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                        dir="ltr"
+                        className="text-right"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -693,7 +822,7 @@ export default function CartPage() {
                 onClick={goNext}
                 disabled={
                   (step === 1 &&
-                    (!phone.trim() || !address.trim() || !user)) ||
+                    (!phone.trim() || !addressComplete || !user)) ||
                   (step === 0 && items.length === 0)
                 }
                 className="gap-2"

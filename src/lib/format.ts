@@ -40,6 +40,14 @@ export function formatPrice(value: number): string {
   return `${toFa(formatted)} تومان`;
 }
 
+/**
+ * Label shown next to «قابل سفارش» for made-to-order products,
+ * e.g. "(۷ روز کاری)".
+ */
+export function madeToOrderLabel(days: number): string {
+  return `(${toFa(days)} روز کاری)`;
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   try {

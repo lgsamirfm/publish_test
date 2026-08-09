@@ -128,17 +128,7 @@ export async function POST(req: NextRequest) {
             400
           );
         }
-        // Block ordering out-of-stock products
-        if (product.stock <= 0) {
-          return jsonError(`محصول «${product.name}» ناموجود است.`, 400);
-        }
-        // Check if requested quantity exceeds available stock
-        if (it.quantity > product.stock) {
-          return jsonError(
-            `محصول «${product.name}»: فقط ${product.stock} عدد موجود است.`,
-            400
-          );
-        }
+        
         name = product.name;
         price = product.price;
         image = product.images?.split(",")[0]?.trim() ?? "";
@@ -184,15 +174,14 @@ export async function POST(req: NextRequest) {
         if (!product) {
           throw new Error(`محصول «${check.name}» یافت نشد.`);
         }
-        if (product.stock < check.quantity) {
-          throw new Error(
-            `محصول «${product.name}»: فقط ${product.stock} عدد موجود است.`
-          );
+        const decrement = Math.min(check.quantity, Math.max(0, product.stock));
+        if (decrement > 0) {
+          await tx.product.update({
+            where: { id: check.id },
+            data: { stock: { decrement } },
+          });
         }
-        await tx.product.update({
-          where: { id: check.id },
-          data: { stock: { decrement: check.quantity } },
-        });
+        
       }
 
       return tx.order.create({

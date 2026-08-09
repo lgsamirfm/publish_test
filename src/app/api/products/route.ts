@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import { toEnDigits } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,19 @@ export async function POST(req: NextRequest) {
     const category = String(body.category ?? "عمومی").trim() || "عمومی";
     const stock = Math.max(0, Math.floor(Number(body.stock ?? 0)));
     const featured = Boolean(body.featured);
+    // Days needed to make the product when it is out of stock («قابل سفارش (۷ روز کاری)»)
+    let productionDays = 7;
+    if (
+      body.productionDays !== undefined &&
+      body.productionDays !== null &&
+      String(body.productionDays).trim() !== ""
+    ) {
+      const pd = Math.floor(Number(toEnDigits(String(body.productionDays))));
+      if (!Number.isFinite(pd) || pd < 1 || pd > 365) {
+        return jsonError("مدت آماده‌سازی باید بین ۱ تا ۳۶۵ روز کاری باشد.", 400);
+      }
+      productionDays = pd;
+    }
     // submissionImages: comma-separated URLs, max 6 photos (for "ارسالی های شما")
     const rawSubmissionImages = String(body.submissionImages ?? "").trim();
     const submissionImages = rawSubmissionImages
@@ -107,6 +121,7 @@ export async function POST(req: NextRequest) {
         variants: variantsJson,
         category,
         stock,
+        productionDays,
         featured,
       },
     })) as Product;

@@ -9,6 +9,7 @@ import { ImageFallback } from "@/components/image-fallback";
 import { Price } from "@/components/price";
 import { useCart } from "@/store/cart";
 import { toast } from "sonner";
+import { madeToOrderLabel } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 export function ProductCard({ product }: { product: Product }) {
@@ -31,31 +32,29 @@ export function ProductCard({ product }: { product: Product }) {
             </Badge>
           )}
           {product.stock <= 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-              <span className="rounded-full bg-foreground/80 px-4 py-1.5 text-sm font-medium text-background">
-                ناموجود
-              </span>
-            </div>
+             <span className="absolute bottom-3 right-3 rounded-full bg-amber-100/95 px-3 py-1 text-[11px] font-bold text-amber-800 shadow">
+              قابل سفارش {madeToOrderLabel(product.productionDays ?? 7)}
+            </span>
           )}
         </div>
       </Link>
-      <div className="flex flex-col gap-2 p-4">
+      <div className="flex flex-col gap-1.5 p-2.5 sm:p-4">
         <Badge variant="secondary" className="w-fit text-[11px]">
           {product.category}
         </Badge>
         <Link href={`/products/${product.id}`}>
-          <h3 className="line-clamp-1 font-bold text-foreground transition-colors group-hover:text-primary">
+           <h3 className="line-clamp-1 font-bold text-foreground text-xs sm:text-base transition-colors group-hover:text-primary">
             {product.name}
           </h3>
         </Link>
-        <p className="line-clamp-2 text-xs leading-6 text-muted-foreground">
+        <p className="line-clamp-2 text-[10px] sm:text-xs leading-5 sm:leading-6 text-muted-foreground">
           {product.description}
         </p>
         <div className="mt-2 flex items-center justify-between gap-2">
-          <Price value={product.price} className="text-base" />
+          <Price value={product.price} className="text-xs sm:text-base" />
           <Button
             size="sm"
-            disabled={product.stock <= 0}
+            
             onClick={() => {
               add({
                 type: "PRODUCT",
@@ -64,11 +63,17 @@ export function ProductCard({ product }: { product: Product }) {
                 price: product.price,
                 image,
               });
-              toast.success("به سبد خرید اضافه شد");
+              if (product.stock <= 0) {
+                toast.success(
+                  `به سبد خرید اضافه شد — آماده‌سازی حدود ${madeToOrderLabel(product.productionDays ?? 7)} طول می‌کشد`
+                );
+              } else {
+                toast.success("به سبد خرید اضافه شد");
+              }
             }}
           >
-            <ShoppingCart className="size-4" />
-            افزودن
+            <ShoppingCart className="size-3 sm:size-4" />
+            <span className="text-[10px] sm:text-xs">افزودن</span>
           </Button>
         </div>
       </div>
