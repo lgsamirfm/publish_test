@@ -11,6 +11,8 @@ interface PaymentMethodSelectorProps {
   amount: number;
   disableCod?: boolean;
   disableCodReason?: string;
+  disableOnline?: boolean;
+  disableOnlineReason?: string;
 }
 
 const methods = [
@@ -40,6 +42,8 @@ export function PaymentMethodSelector({
   amount,
   disableCod = false,
   disableCodReason = "الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند.",
+  disableOnline = false,
+  disableOnlineReason = "درگاه پرداخت آنلاین در حال حاضر در دسترس نیست.",
 }: PaymentMethodSelectorProps) {
   return (
     <div dir="rtl" className="space-y-3">
@@ -48,16 +52,18 @@ export function PaymentMethodSelector({
         <span className="text-foreground font-bold">{formatPrice(amount)}</span>
       </div>
 
-      {disableCod && (
+      {(disableCod || disableOnline) && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertCircle className="size-4 shrink-0" />
-          <span>{disableCodReason}</span>
+          <span>{disableOnline ? disableOnlineReason : disableCodReason}</span>
         </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {methods.map((method) => {
-          const isCodDisabled = method.key === "COD" && disableCod;
+          const isDisabled =
+            (method.key === "COD" && disableCod) ||
+            (method.key === "ONLINE" && disableOnline);
           const isSelected = value === method.key;
           const Icon = method.icon;
           const BadgeIcon = method.badgeIcon;
@@ -66,20 +72,20 @@ export function PaymentMethodSelector({
             <button
               key={method.key}
               type="button"
-              disabled={isCodDisabled}
-              onClick={() => !isCodDisabled && onChange(method.key)}
+              disabled={isDisabled}
+              onClick={() => !isDisabled && onChange(method.key)}
               className={cn(
                 "relative flex flex-col items-start gap-3 rounded-xl border-2 p-4 text-right transition-all duration-200",
-                isCodDisabled
+                isDisabled
                   ? "opacity-50 cursor-not-allowed bg-muted/30 border-muted"
                   : "cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                isSelected && !isCodDisabled
+                isSelected && !isDisabled
                   ? "border-primary bg-primary/5 shadow-sm"
-                  : !isCodDisabled && "border-muted bg-background hover:border-muted-foreground/30"
+                  : !isDisabled && "border-muted bg-background hover:border-muted-foreground/30"
               )}
             >
               {/* Selected checkmark */}
-              {isSelected && !isCodDisabled && (
+              {isSelected && !isDisabled && (
                 <div className="absolute top-3 left-3">
                   <CheckCircle2 className="size-5 text-primary fill-primary/10" />
                 </div>
@@ -90,7 +96,7 @@ export function PaymentMethodSelector({
                 <div
                   className={cn(
                     "flex items-center justify-center w-10 h-10 rounded-lg",
-                    isSelected && !isCodDisabled
+                    isSelected && !isDisabled
                       ? "bg-primary/10 text-primary"
                       : "bg-muted text-muted-foreground"
                   )}
@@ -100,7 +106,7 @@ export function PaymentMethodSelector({
                 <span
                   className={cn(
                     "font-semibold text-sm",
-                    isSelected && !isCodDisabled ? "text-primary" : "text-foreground"
+                    isSelected && !isDisabled ? "text-primary" : "text-foreground"
                   )}
                 >
                   {method.title}
@@ -109,14 +115,16 @@ export function PaymentMethodSelector({
 
               {/* Description */}
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {isCodDisabled
-                  ? "غیرقابل انتخاب (به دلیل وجود الگوی دیجیتال در سبد)"
+                {isDisabled
+                  ? method.key === "ONLINE"
+                    ? "غیرقابل انتخاب تا زمان اتصال درگاه واقعی"
+                    : "غیرقابل انتخاب (به دلیل وجود الگوی دیجیتال در سبد)"
                   : method.description}
               </p>
 
               {/* Badge */}
               <Badge
-                variant={isSelected && !isCodDisabled ? "default" : "secondary"}
+                variant={isSelected && !isDisabled ? "default" : "secondary"}
                 className="gap-1 text-[10px]"
               >
                 <BadgeIcon className="size-3" />

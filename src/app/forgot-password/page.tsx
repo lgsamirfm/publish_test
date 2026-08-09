@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
       }
 
       // Redirect to reset-password page with phone query param
-      router.push(`/reset-password?phone=${encodeURIComponent(normalized)}${data.code ? `&code=${data.code}` : ''}`);
+      router.push(`/reset-password?phone=${encodeURIComponent(normalized)}`);
     } catch {
       toast.error("خطای شبکه.");
       setLoading(false);

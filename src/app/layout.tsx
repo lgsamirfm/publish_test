@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Vazirmatn } from "next/font/google";
+import { headers } from "next/headers";
+import "@fontsource-variable/vazirmatn";
 import "./globals.css";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { getSession } from "@/lib/auth";
-
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic", "latin"],
-  variable: "--font-vazirmatn",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "بافخانه | فروشگاه عروسک، کلیدچین و گل کروشه",
@@ -35,17 +30,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const initialUser = await getSession();
+  const nonce = (await headers()).get("x-nonce") || undefined;
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <body
-        className={`${vazirmatn.variable} font-sans antialiased bg-background text-foreground`}
-      >
+      <body className="font-sans antialiased bg-background text-foreground">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <div className="relative flex min-h-screen flex-col">
             <SiteHeader initialUser={initialUser} />

@@ -1,42 +1,33 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { jsonOk, jsonError } from "@/lib/api";
+import { handleApiError, jsonOk } from "@/lib/api";
 
-/**
- * GET /api/user/purchased-patterns
- * Returns patterns the authenticated user has purchased (paid orders only).
- * Does NOT include pdfUrl — that is only available via the content endpoint.
- */
 export async function GET() {
   try {
     const user = await requireUser();
-
-    // Find all PAID order items of type PATTERN for this user
     const paidOrders = await db.order.findMany({
       where: {
         userId: user.id,
         paymentStatus: "PAID",
+        status: { not: "CANCELLED" },
       },
-      include: { items: true },
+      select: {
+        items: {
+          where: { itemType: "PATTERN" },
+          select: { itemId: true },
+        },
+      },
+      take: 500,
     });
 
-    // Collect unique pattern IDs from paid order items
-    const patternIds = new Set<string>();
-    for (const order of paidOrders) {
-      for (const item of order.items) {
-        if (item.itemType === "PATTERN") {
-          patternIds.add(item.itemId);
-        }
-      }
-    }
+    const patternIds = Array.from(
+      new Set(paidOrders.flatMap((order) => order.items.map((item) => item.itemId)))
+    );
+    if (patternIds.length === 0) return jsonOk({ patterns: [] });
 
-    if (patternIds.size === 0) {
-      return jsonOk({ patterns: [] });
-    }
-
-    // Fetch pattern details (without pdfUrl)
     const patterns = await db.pattern.findMany({
-      where: { id: { in: Array.from(patternIds) } },
+      where: { id: { in: patternIds } },
+      take: 500,
       select: {
         id: true,
         title: true,
@@ -49,12 +40,10 @@ export async function GET() {
         gauge: true,
         featured: true,
         createdAt: true,
-        // pdfUrl intentionally excluded — only accessible via content endpoint
       },
     });
-
     return jsonOk({ patterns });
-  } catch (err) {
-    return jsonError("خطا در دریافت الگوهای خریداری شده.", 500);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

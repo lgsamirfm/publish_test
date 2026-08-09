@@ -1,7 +1,9 @@
 // Prisma schema for the Persian knitting e-commerce store (بافخانه)
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
+  output     = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -73,6 +75,9 @@ model Order {
   items         OrderItem[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -85,4 +90,7 @@ model OrderItem {
   price     Int
   image     String  @default("")
   quantity  Int     @default(1)
+
+  @@index([orderId])
+  @@index([itemType, itemId])
 }

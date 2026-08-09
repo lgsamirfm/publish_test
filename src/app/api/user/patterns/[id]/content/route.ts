@@ -1,39 +1,26 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { jsonOk, jsonError } from "@/lib/api";
+import { handleApiError, jsonError, jsonOk } from "@/lib/api";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/**
- * GET /api/user/patterns/[id]/content
- * Returns pattern details for the viewer modal.
- * Only accessible if the user has purchased this pattern in a PAID order.
- * Returns hasContent boolean (whether an HTML file exists), but never exposes the URL.
- */
 export async function GET(_req: Request, { params }: Ctx) {
   try {
     const user = await requireUser();
     const { id } = await params;
+    if (!id || id.length > 128) return jsonError("شناسه الگو نامعتبر است.", 400);
 
-    // Verify the user has purchased this pattern in a paid order
-    const paidOrders = await db.order.findMany({
+    const purchased = await db.order.findFirst({
       where: {
         userId: user.id,
         paymentStatus: "PAID",
-        items: {
-          some: {
-            itemType: "PATTERN",
-            itemId: id,
-          },
-        },
+        status: { not: "CANCELLED" },
+        items: { some: { itemType: "PATTERN", itemId: id } },
       },
+      select: { id: true },
     });
+    if (!purchased) return jsonError("شما این الگو را خریداری نکرده‌اید.", 403);
 
-    if (paidOrders.length === 0) {
-      return jsonError("شما این الگو را خریداری نکرده‌اید.", 403);
-    }
-
-    // Fetch pattern details — pdfUrl is selected but NOT returned to client
     const pattern = await db.pattern.findUnique({
       where: { id },
       select: {
@@ -48,12 +35,8 @@ export async function GET(_req: Request, { params }: Ctx) {
         pdfUrl: true,
       },
     });
+    if (!pattern) return jsonError("الگو یافت نشد.", 404);
 
-    if (!pattern) {
-      return jsonError("الگو یافت نشد.", 404);
-    }
-
-    // Return pattern data WITHOUT pdfUrl — only hasContent boolean
     return jsonOk({
       pattern: {
         id: pattern.id,
@@ -64,10 +47,10 @@ export async function GET(_req: Request, { params }: Ctx) {
         yarnType: pattern.yarnType,
         needleSize: pattern.needleSize,
         gauge: pattern.gauge,
-        hasContent: !!pattern.pdfUrl && pattern.pdfUrl.trim().length > 0,
+        hasContent: Boolean(pattern.pdfUrl.trim()),
       },
     });
-  } catch (err) {
-    return jsonError("خطا در دریافت محتوای الگو.", 500);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

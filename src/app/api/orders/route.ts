@@ -2,7 +2,15 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
+import { simulatedPaymentsEnabled } from "@/lib/payment";
 
 type OrderInputItem = {
   type: "PRODUCT" | "PATTERN";
@@ -10,96 +18,119 @@ type OrderInputItem = {
   quantity: number;
 };
 
-/**
- * POST /api/orders
- * Body: { items: [{type, id, quantity}], address, phone, note, paymentMethod }
- * - Requires login.
- * - For each item: lookup Product/Pattern, validate existence, use DB price.
- * - Create order + OrderItems in a single transaction.
- * - Calculates shipping cost: free for orders >= 500k toman, otherwise 50k toman.
- */
+const MAX_DISTINCT_ITEMS = 50;
+const MAX_ITEM_QUANTITY = 99;
+const MAX_ORDER_TOTAL = 2_000_000_000;
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
-
     const ip = await getClientIp();
-    const rl = await rateLimit(`order-create-${ip}`, 10, 60_000);
-    if (!rl.success) {
-      return jsonError(
-        "تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.",
-        429
-      );
-    }
 
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return jsonError("بدنه درخواست نامعتبر است.", 400);
-    }
+    const minuteLimit = await rateLimit(`order-create:ip:${ip}`, 10, 60_000);
+    if (!minuteLimit.success) return rateLimitError(minuteLimit);
+    const accountLimit = await rateLimit(
+      `order-create:user:${user.id}`,
+      30,
+      60 * 60_000
+    );
+    if (!accountLimit.success) return rateLimitError(accountLimit);
 
-    const {
-      items: rawItems,
-      address,
-      phone,
-      note,
-      paymentMethod,
-    } = (body ?? {}) as {
-      items?: OrderInputItem[];
-      address?: string;
-      phone?: string;
-      note?: string;
-      paymentMethod?: string;
-    };
+    const parsed = await readJsonBody<{
+      items?: unknown;
+      address?: unknown;
+      phone?: unknown;
+      note?: unknown;
+      paymentMethod?: unknown;
+    }>(req, 24 * 1024);
+    if (!parsed.ok) return parsed.response;
+
+    const rawItems = parsed.data?.items;
+    const address = typeof parsed.data?.address === "string" ? parsed.data.address : "";
+    const phone = typeof parsed.data?.phone === "string" ? parsed.data.phone : "";
+    const note = typeof parsed.data?.note === "string" ? parsed.data.note : "";
+    const paymentMethod = parsed.data?.paymentMethod;
 
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
       return jsonError("سبد خرید خالی است.", 400);
     }
-    if (!phone || !phone.trim()) {
-      return jsonError("شماره تماس الزامی است.", 400);
+    if (rawItems.length > MAX_DISTINCT_ITEMS) {
+      return jsonError("تعداد آیتم‌های سبد بیش از حد مجاز است.", 400);
     }
-    if (phone.trim().length > 20) return jsonError("شماره تماس بسیار طولانی است.", 400);
-    if (!address || !address.trim()) {
-      return jsonError("آدرس الزامی است.", 400);
+    if (!phone.trim() || phone.trim().length > 20) {
+      return jsonError("شماره تماس معتبر الزامی است.", 400);
     }
-    if (address.trim().length > 1000) return jsonError("آدرس بسیار طولانی است.", 400);
-    if (note && String(note).length > 2000) return jsonError("یادداشت بسیار طولانی است.", 400);
-
-    // Validate paymentMethod
-    if (paymentMethod && paymentMethod !== "ONLINE" && paymentMethod !== "COD") {
+    if (!address.trim() || address.trim().length > 1000) {
+      return jsonError("آدرس معتبر الزامی است.", 400);
+    }
+    if (note.length > 2000) return jsonError("یادداشت بسیار طولانی است.", 400);
+    if (paymentMethod !== "ONLINE" && paymentMethod !== "COD") {
       return jsonError("روش پرداخت نامعتبر است.", 400);
     }
-
-    // Normalize + validate items
-    const items: OrderInputItem[] = [];
-    for (const it of rawItems) {
-      if (!it || (it.type !== "PRODUCT" && it.type !== "PATTERN")) {
-        return jsonError("نوع آیتم سبد نامعتبر است.", 400);
-      }
-      if (typeof it.id !== "string" || !it.id) {
-        return jsonError("شناسه آیتم سبد نامعتبر است.", 400);
-      }
-      const qty = Math.floor(Number(it.quantity));
-      if (!Number.isFinite(qty) || qty < 1) {
-        return jsonError("تعداد آیتم نامعتبر است.", 400);
-      }
-      if (qty > 99) {
-        return jsonError("حداکثر تعداد هر آیتم ۹۹ است.", 400);
-      }
-      items.push({ type: it.type, id: it.id, quantity: qty });
-    }
-
-    // Digital patterns cannot be paid via COD (Cash on Delivery)
-    const hasPatternItem = items.some((it) => it.type === "PATTERN");
-    if (hasPatternItem && paymentMethod === "COD") {
+    if (paymentMethod === "ONLINE" && !simulatedPaymentsEnabled()) {
       return jsonError(
-        "الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند و امکان پرداخت در محل برای آن‌ها وجود ندارد.",
-        400
+        "درگاه پرداخت آنلاین واقعی هنوز پیکربندی نشده است. سفارش ایجاد نشد.",
+        503
       );
     }
 
-    // Look up each item and snapshot its real DB price (never trust client)
-    const orderItemsData: {
+    // Normalize and combine duplicate product rows before any pricing or stock work.
+    const combined = new Map<string, OrderInputItem>();
+    for (const value of rawItems) {
+      const item = value as Partial<OrderInputItem> | null;
+      if (!item || (item.type !== "PRODUCT" && item.type !== "PATTERN")) {
+        return jsonError("نوع آیتم سبد نامعتبر است.", 400);
+      }
+      if (typeof item.id !== "string" || !item.id || item.id.length > 128) {
+        return jsonError("شناسه آیتم سبد نامعتبر است.", 400);
+      }
+      const quantity = Math.floor(Number(item.quantity));
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        return jsonError("تعداد آیتم نامعتبر است.", 400);
+      }
+      if (item.type === "PATTERN" && quantity !== 1) {
+        return jsonError("هر الگوی دیجیتال فقط یک‌بار قابل خرید است.", 400);
+      }
+
+      const key = `${item.type}:${item.id}`;
+      const previous = combined.get(key);
+      if (previous && item.type === "PATTERN") {
+        return jsonError("الگوی تکراری در سبد خرید وجود دارد.", 400);
+      }
+      const combinedQuantity = (previous?.quantity || 0) + quantity;
+      if (combinedQuantity > MAX_ITEM_QUANTITY) {
+        return jsonError("حداکثر تعداد هر محصول ۹۹ است.", 400);
+      }
+      combined.set(key, { type: item.type, id: item.id, quantity: combinedQuantity });
+    }
+    const items = Array.from(combined.values());
+
+    const hasPattern = items.some((item) => item.type === "PATTERN");
+    if (hasPattern && paymentMethod === "COD") {
+      return jsonError("الگوهای دیجیتال فقط به‌صورت آنلاین قابل پرداخت هستند.", 400);
+    }
+
+    const patternIds = items
+      .filter((item) => item.type === "PATTERN")
+      .map((item) => item.id);
+    if (patternIds.length > 0) {
+      const alreadyOwned = await db.order.findFirst({
+        where: {
+          userId: user.id,
+          paymentStatus: "PAID",
+          status: { not: "CANCELLED" },
+          items: {
+            some: { itemType: "PATTERN", itemId: { in: patternIds } },
+          },
+        },
+        select: { id: true },
+      });
+      if (alreadyOwned) {
+        return jsonError("یکی از الگوهای سبد قبلاً خریداری شده است.", 409);
+      }
+    }
+
+    const orderItems: {
       itemType: "PRODUCT" | "PATTERN";
       itemId: string;
       name: string;
@@ -107,81 +138,69 @@ export async function POST(req: NextRequest) {
       image: string;
       quantity: number;
     }[] = [];
+    const stockChecks: { id: string; quantity: number; name: string }[] = [];
     let total = 0;
 
-    // Collect product IDs that need stock checks so we can do it inside a transaction
-    const productStockChecks: { id: string; quantity: number; name: string }[] = [];
-
-    for (const it of items) {
-      let name: string;
-      let price: number;
-      let image: string;
-
-      if (it.type === "PRODUCT") {
+    for (const item of items) {
+      if (item.type === "PRODUCT") {
         const product = await db.product.findUnique({
-          where: { id: it.id },
-          select: { id: true, name: true, price: true, images: true, stock: true },
+          where: { id: item.id },
+          select: { id: true, name: true, price: true, images: true },
         });
-        if (!product) {
-          return jsonError(
-            "یکی از محصولات سبد یافت نشد. ممکن است حذف شده باشد.",
-            400
-          );
+        if (!product || !Number.isSafeInteger(product.price) || product.price < 0) {
+          return jsonError("یکی از محصولات سبد معتبر نیست.", 400);
         }
-        
-        name = product.name;
-        price = product.price;
-        image = product.images?.split(",")[0]?.trim() ?? "";
-        productStockChecks.push({ id: product.id, quantity: it.quantity, name: product.name });
+        total += product.price * item.quantity;
+        orderItems.push({
+          itemType: "PRODUCT",
+          itemId: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.images?.split(",")[0]?.trim() || "",
+          quantity: item.quantity,
+        });
+        stockChecks.push({ id: product.id, quantity: item.quantity, name: product.name });
       } else {
         const pattern = await db.pattern.findUnique({
-          where: { id: it.id },
+          where: { id: item.id },
           select: { id: true, title: true, price: true, images: true },
         });
-        if (!pattern) {
-          return jsonError(
-            "یکی از الگوهای سبد یافت نشد. ممکن است حذف شده باشد.",
-            400
-          );
+        if (!pattern || !Number.isSafeInteger(pattern.price) || pattern.price < 0) {
+          return jsonError("یکی از الگوهای سبد معتبر نیست.", 400);
         }
-        name = pattern.title;
-        price = pattern.price;
-        image = pattern.images?.split(",")[0]?.trim() ?? "";
+        total += pattern.price;
+        orderItems.push({
+          itemType: "PATTERN",
+          itemId: pattern.id,
+          name: pattern.title,
+          price: pattern.price,
+          image: pattern.images?.split(",")[0]?.trim() || "",
+          quantity: 1,
+        });
       }
 
-      total += price * it.quantity;
-      orderItemsData.push({
-        itemType: it.type,
-        itemId: it.id,
-        name,
-        price,
-        image,
-        quantity: it.quantity,
-      });
+      if (!Number.isSafeInteger(total) || total > MAX_ORDER_TOTAL) {
+        return jsonError("مبلغ سفارش بیش از حد مجاز است.", 400);
+      }
     }
 
-    // Calculate shipping cost: free for orders >= 500,000 toman, otherwise 50,000 toman
-    const shippingCost = total >= 500000 ? 0 : 50000;
+    const hasPhysicalProduct = items.some((item) => item.type === "PRODUCT");
+    const shippingCost = hasPhysicalProduct && total < 500_000 ? 50_000 : 0;
 
-    // Use a transaction to atomically decrement stock and create the order
     const order = await db.$transaction(async (tx) => {
-      // Re-check and decrement stock for each product inside the transaction
-      for (const check of productStockChecks) {
+      for (const check of stockChecks) {
         const product = await tx.product.findUnique({
           where: { id: check.id },
-          select: { stock: true, name: true },
+          select: { stock: true },
         });
-        if (!product) {
-          throw new Error(`محصول «${check.name}» یافت نشد.`);
-        }
-        const decrement = Math.min(check.quantity, Math.max(0, product.stock));
-        if (decrement > 0) {
-          await tx.product.update({
-            where: { id: check.id },
-            data: { stock: { decrement } },
-          });
-        }
-        
+        if (!product) throw new Error(`Product disappeared: ${check.id}`);
+
+        // Negative stock represents made-to-order demand. Reserving the complete
+        // quantity lets cancellation restore exactly what this order reserved.
+        await tx.product.update({
+          where: { id: check.id },
+          data: { stock: { decrement: check.quantity } },
+        });
       }
 
       return tx.order.create({
@@ -191,29 +210,22 @@ export async function POST(req: NextRequest) {
           status: "PENDING",
           address: address.trim(),
           phone: phone.trim(),
-          note: (note ?? "").toString().slice(0, 2000).trim(),
-          paymentMethod: paymentMethod || "",
+          note: note.trim(),
+          paymentMethod,
           paymentStatus: "UNPAID",
           shippingCost,
-          items: {
-            create: orderItemsData,
-          },
+          items: { create: orderItems },
         },
         include: { items: true },
       });
     });
 
     return jsonOk({ order }, 201);
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-/**
- * GET /api/orders
- * - Customer: own orders, newest first.
- * - Admin: all orders, newest first, with user name/email.
- */
 export async function GET() {
   try {
     const user = await requireUser();
@@ -225,6 +237,7 @@ export async function GET() {
           user: { select: { id: true, name: true, phone: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
+        take: 500,
       });
       return jsonOk({ orders });
     }
@@ -233,9 +246,10 @@ export async function GET() {
       where: { userId: user.id },
       include: { items: true },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
     return jsonOk({ orders });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

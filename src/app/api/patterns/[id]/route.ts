@@ -2,16 +2,27 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
+import { normalizeContentReference, normalizeImageList } from "@/lib/validation";
 
 const DIFFICULTIES = ["مبتدی", "متوسط", "پیشرفته"] as const;
-
 type Params = Promise<{ id: string }>;
 
-/* GET /api/patterns/[id] -> { pattern } | 404 */
+function validId(id: string) {
+  return Boolean(id && id.length <= 128);
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Params }) {
   try {
     const { id } = await params;
+    if (!validId(id)) return jsonError("شناسه الگو نامعتبر است.", 400);
     const pattern = await db.pattern.findUnique({
       where: { id },
       select: {
@@ -26,90 +37,111 @@ export async function GET(_req: NextRequest, { params }: { params: Params }) {
         gauge: true,
         featured: true,
         createdAt: true,
-        // pdfUrl intentionally excluded — security risk
       },
     });
     if (!pattern) return jsonError("الگو یافت نشد.", 404);
     return jsonOk({ pattern });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-/* PUT /api/patterns/[id] (ADMIN) -> { pattern } */
 export async function PUT(req: NextRequest, { params }: { params: Params }) {
   try {
-    await requireAdmin();
-
+    const admin = await requireAdmin();
     const ip = await getClientIp();
-    const rl = await rateLimit("pattern-update-" + ip, 30, 60000);
-    if (!rl.success) return jsonError("درخواست بیش از حد.", 429);
+    const limit = await rateLimit(`pattern-update:${admin.id}:${ip}`, 40, 60 * 60_000);
+    if (!limit.success) return rateLimitError(limit);
 
     const { id } = await params;
-    const existing = await db.pattern.findUnique({ where: { id } });
-    if (!existing) return jsonError("الگو یافت نشد.", 404);
-
-    const body = await req.json().catch(() => ({}));
-    const {
-      title,
-      description,
-      price,
-      images,
-      difficulty,
-      yarnType,
-      needleSize,
-      gauge,
-      pdfUrl,
-      featured,
-    } = body as Record<string, unknown>;
-
-    if (typeof title === "string" && !title.trim()) {
-      return jsonError("عنوان الگو نمی‌تواند خالی باشد.", 422);
+    if (!validId(id)) return jsonError("شناسه الگو نامعتبر است.", 400);
+    if (!(await db.pattern.findUnique({ where: { id }, select: { id: true } }))) {
+      return jsonError("الگو یافت نشد.", 404);
     }
 
+    const parsed = await readJsonBody<Record<string, unknown>>(req, 24 * 1024);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
     const data: Record<string, unknown> = {};
-    if (typeof title === "string") data.title = title.trim();
-    if (typeof description === "string") data.description = description;
-    if (typeof images === "string") data.images = images;
-    if (typeof yarnType === "string") data.yarnType = yarnType;
-    if (typeof needleSize === "string") data.needleSize = needleSize;
-    if (typeof gauge === "string") data.gauge = gauge;
-    if (typeof pdfUrl === "string") data.pdfUrl = pdfUrl;
-    if (typeof featured === "boolean") data.featured = featured;
-    if (typeof difficulty === "string" && DIFFICULTIES.includes(difficulty as (typeof DIFFICULTIES)[number])) {
-      data.difficulty = difficulty;
+
+    if (body.title !== undefined) {
+      if (typeof body.title !== "string" || !body.title.trim() || body.title.trim().length > 200) {
+        return jsonError("عنوان الگو معتبر نیست.", 422);
+      }
+      data.title = body.title.trim();
     }
-    if (price !== undefined) {
-      const priceNum = Math.floor(Number(price));
-      if (!Number.isFinite(priceNum) || priceNum < 0) {
+    if (body.description !== undefined) {
+      if (typeof body.description !== "string" || body.description.length > 5000) {
+        return jsonError("توضیحات معتبر نیست.", 422);
+      }
+      data.description = body.description;
+    }
+    if (body.images !== undefined) {
+      const result = normalizeImageList(body.images, 10);
+      if (!result.ok) return jsonError(result.message, 422);
+      data.images = result.value;
+    }
+    if (body.pdfUrl !== undefined) {
+      const result = normalizeContentReference(body.pdfUrl);
+      if (!result.ok) return jsonError(result.message, 422);
+      data.pdfUrl = result.value;
+    }
+    for (const [field, max] of [
+      ["yarnType", 100],
+      ["needleSize", 100],
+      ["gauge", 200],
+    ] as const) {
+      if (body[field] !== undefined) {
+        if (typeof body[field] !== "string" || body[field].length > max) {
+          return jsonError("مشخصات الگو معتبر نیست.", 422);
+        }
+        data[field] = body[field].trim();
+      }
+    }
+    if (body.difficulty !== undefined) {
+      if (
+        typeof body.difficulty !== "string" ||
+        !DIFFICULTIES.includes(body.difficulty as (typeof DIFFICULTIES)[number])
+      ) {
+        return jsonError("سطح دشواری معتبر نیست.", 422);
+      }
+      data.difficulty = body.difficulty;
+    }
+    if (body.price !== undefined) {
+      const price = Math.floor(Number(body.price));
+      if (!Number.isSafeInteger(price) || price < 0 || price > 2_000_000_000) {
         return jsonError("قیمت معتبر نیست.", 422);
       }
-      data.price = priceNum;
+      data.price = price;
+    }
+    if (body.featured !== undefined) {
+      if (typeof body.featured !== "boolean") return jsonError("مقدار ویژه معتبر نیست.", 422);
+      data.featured = body.featured;
+    }
+    if (Object.keys(data).length === 0) {
+      return jsonError("فیلدی برای به‌روزرسانی ارسال نشده است.", 400);
     }
 
     const pattern = await db.pattern.update({ where: { id }, data });
     return jsonOk({ pattern });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-/* DELETE /api/patterns/[id] (ADMIN) -> { ok: true } */
 export async function DELETE(_req: NextRequest, { params }: { params: Params }) {
   try {
-    await requireAdmin();
-
+    const admin = await requireAdmin();
     const ip = await getClientIp();
-    const rl = await rateLimit("pattern-delete-" + ip, 30, 60000);
-    if (!rl.success) return jsonError("درخواست بیش از حد.", 429);
+    const limit = await rateLimit(`pattern-delete:${admin.id}:${ip}`, 20, 60 * 60_000);
+    if (!limit.success) return rateLimitError(limit);
 
     const { id } = await params;
-    const existing = await db.pattern.findUnique({ where: { id } });
-    if (!existing) return jsonError("الگو یافت نشد.", 404);
-
-    await db.pattern.delete({ where: { id } });
+    if (!validId(id)) return jsonError("شناسه الگو نامعتبر است.", 400);
+    const deleted = await db.pattern.deleteMany({ where: { id } });
+    if (deleted.count !== 1) return jsonError("الگو یافت نشد.", 404);
     return jsonOk({ ok: true });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }

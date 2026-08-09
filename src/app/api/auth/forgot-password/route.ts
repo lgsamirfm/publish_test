@@ -1,49 +1,83 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { generateResetCode, hashResetCode } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
+import {
+  getClientIp,
+  handleApiError,
+  jsonError,
+  jsonOk,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
 import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
+import { sendPasswordResetCode } from "@/lib/sms";
 
-export async function POST(req: Request) {
+const GENERIC_RESPONSE = {
+  ok: true,
+  message: "اگر این شماره در سیستم ثبت شده باشد، کد بازیابی ارسال می‌شود.",
+  expiresInSeconds: 120,
+};
+
+export async function POST(req: NextRequest) {
   try {
-    const { phone: rawPhone } = await req.json().catch(() => ({}));
-    const phone = normalizeIranianPhone(String(rawPhone ?? ""));
+    const ip = await getClientIp();
+    const ipLimit = await rateLimit(`forgot-password:ip:${ip}`, 10, 15 * 60_000);
+    if (!ipLimit.success) return rateLimitError(ipLimit);
 
-    if (!phone || !isValidIranianPhone(phone)) {
-      return NextResponse.json(
-        { error: "شماره موبایل وارد شده معتبر نیست. (مثال: 09121234567)" },
-        { status: 400 }
-      );
+    const parsed = await readJsonBody<Record<string, unknown>>(req, 4 * 1024);
+    if (!parsed.ok) return parsed.response;
+
+    const phone = normalizeIranianPhone(String(parsed.data?.phone ?? ""));
+    if (!isValidIranianPhone(phone)) {
+      return jsonError("شماره موبایل وارد شده معتبر نیست.", 400);
     }
 
-    const user = await db.user.findFirst({
+    const phoneLimit = await rateLimit(
+      `forgot-password:phone:${phone}`,
+      3,
+      15 * 60_000
+    );
+    if (!phoneLimit.success) return rateLimitError(phoneLimit);
+
+    const user = await db.user.findUnique({
       where: { phone },
+      select: { id: true, phone: true },
     });
 
     if (!user) {
-      return NextResponse.json({
-        ok: true,
-        message: "کد تأیید به شماره موبایل ارسال شد (اگر در سیستم ثبت شده باشد).",
+      // Reduce the obvious timing difference without making the endpoint costly.
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return jsonOk(GENERIC_RESPONSE);
+    }
+
+    const code = generateResetCode();
+    const exposeInDevelopment =
+      process.env.NODE_ENV !== "production" &&
+      process.env.DEV_EXPOSE_RESET_CODE === "true";
+    const sent = await sendPasswordResetCode(user.phone, code);
+
+    if (sent || exposeInDevelopment) {
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken: hashResetCode(user.phone, code),
+          resetTokenExpiry: new Date(Date.now() + 2 * 60_000),
+        },
+      });
+    } else {
+      // Never leave an undelivered code usable.
+      await db.user.update({
+        where: { id: user.id },
+        data: { resetToken: null, resetTokenExpiry: null },
       });
     }
 
-    // Generate random 6-digit verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Set 2-minute expiration (2 * 60 * 1000 ms)
-    const resetTokenExpiry = new Date(Date.now() + 2 * 60 * 1000);
-
-    await db.user.update({
-      where: { id: user.id },
-      data: { resetToken: code, resetTokenExpiry },
+    return jsonOk({
+      ...GENERIC_RESPONSE,
+      ...(exposeInDevelopment ? { code } : {}),
     });
-
-    return NextResponse.json({
-      ok: true,
-      message: "کد تأیید ۲ دقیقه‌ای به شماره موبایل شما ارسال شد.",
-      code, // Included for testing/simulation convenience
-      expiresInSeconds: 120,
-    });
-  } catch {
-    return NextResponse.json({ error: "خطای سرور." }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

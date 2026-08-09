@@ -18,10 +18,9 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   const initialPhone = params.get("phone") || "";
-  const initialCode = params.get("code") || "";
 
   const [phone, setPhone] = useState(initialPhone);
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,8 +90,8 @@ export default function ResetPasswordPage() {
       toast.error("کد تأیید را وارد کنید.");
       return;
     }
-    if (password.length < 6) {
-      toast.error("گذرواژه باید حداقل ۶ کاراکتر باشد.");
+    if (password.length < 12) {
+      toast.error("گذرواژه باید حداقل ۱۲ کاراکتر باشد.");
       return;
     }
     if (password !== confirmPassword) {
@@ -225,7 +224,7 @@ export default function ResetPasswordPage() {
                 autoComplete="new-password"
                 required
                 className="text-left"
-                placeholder="حداقل ۶ کاراکتر"
+                placeholder="حداقل ۱۲ کاراکتر"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

@@ -140,8 +140,10 @@ export default function CartPage() {
   const [postalCode, setPostalCode] = useState("");
   const [note, setNote] = useState("");
 
-  // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ONLINE");
+  // Payment state. Online checkout remains disabled until the server confirms
+  // that a real (or explicitly local-development) gateway is available.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [onlinePaymentsEnabled, setOnlinePaymentsEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState("");
 
@@ -149,10 +151,19 @@ export default function CartPage() {
   const hasPattern = items.some((i) => i.type === "PATTERN");
 
   useEffect(() => {
-    if (hasPattern && paymentMethod === "COD") {
+    fetch("/api/payment/config", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setOnlinePaymentsEnabled(data.onlinePaymentsEnabled === true))
+      .catch(() => setOnlinePaymentsEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    if (hasPattern) {
       setPaymentMethod("ONLINE");
+    } else if (!onlinePaymentsEnabled && paymentMethod === "ONLINE") {
+      setPaymentMethod("COD");
     }
-  }, [hasPattern, paymentMethod]);
+  }, [hasPattern, onlinePaymentsEnabled, paymentMethod]);
 
   // Order success state
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -278,7 +289,9 @@ export default function CartPage() {
   }
 
   const subtotal = totalPrice();
-  const shippingCost = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  const hasPhysicalProduct = items.some((item) => item.type === "PRODUCT");
+  const shippingCost =
+    hasPhysicalProduct && subtotal < SHIPPING_THRESHOLD ? SHIPPING_COST : 0;
   const grandTotal = subtotal + shippingCost;
 
   // ── Step 0: Empty cart ──
@@ -410,6 +423,10 @@ export default function CartPage() {
     if (!postalValid) {
       toast.error("کد پستی باید ۱۰ رقم باشد.");
       setStep(1);
+      return;
+    }
+    if (paymentMethod === "ONLINE" && !onlinePaymentsEnabled) {
+      toast.error("درگاه پرداخت آنلاین واقعی هنوز فعال نشده است؛ سفارش ایجاد نشد.");
       return;
     }
 
@@ -783,7 +800,13 @@ export default function CartPage() {
                 onChange={setPaymentMethod}
                 amount={grandTotal}
                 disableCod={hasPattern}
-                disableCodReason="به دلیل وجود الگوی دیجیتال در سبد خرید، امکان پرداخت در محل وجود ندارد و پرداخت فقط به‌صورت آنلاین انجام می‌شود."
+                disableCodReason="به دلیل وجود الگوی دیجیتال در سبد خرید، امکان پرداخت در محل وجود ندارد."
+                disableOnline={!onlinePaymentsEnabled}
+                disableOnlineReason={
+                  hasPattern
+                    ? "خرید الگوی دیجیتال تا زمان اتصال درگاه پرداخت واقعی موقتاً غیرفعال است."
+                    : "درگاه پرداخت آنلاین واقعی هنوز متصل نشده است؛ پرداخت در محل را انتخاب کنید."
+                }
               />
 
               {/* Delivery summary */}
@@ -833,7 +856,10 @@ export default function CartPage() {
             ) : step === 2 ? (
               <Button
                 onClick={handlePlaceOrder}
-                disabled={submitting}
+                disabled={
+                  submitting ||
+                  (paymentMethod === "ONLINE" && !onlinePaymentsEnabled)
+                }
                 size="lg"
                 className="gap-2"
               >

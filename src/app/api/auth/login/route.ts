@@ -2,51 +2,60 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { jsonOk, jsonError, handleApiError, getClientIp } from "@/lib/api";
+import {
+  jsonOk,
+  jsonError,
+  handleApiError,
+  getClientIp,
+  rateLimitError,
+  readJsonBody,
+} from "@/lib/api";
 import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
 
-// POST /api/auth/login
-// Body: { phone, password }
-// Returns: { user: { id, name, phone, email, role } } and sets the baf_session cookie.
+const DUMMY_PASSWORD_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
+
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit: 10 attempts / minute per IP.
     const ip = await getClientIp();
-    const rl = await rateLimit("login-" + ip, 10, 60_000);
-    if (!rl.success) {
-      return jsonError("تلاش‌های بیش از حد. یک دقیقه بعد تلاش کنید.", 429);
+    const ipLimit = await rateLimit(`login:ip:${ip}`, 10, 60_000);
+    if (!ipLimit.success) {
+      return rateLimitError(ipLimit, "تلاش‌های بیش از حد. کمی بعد تلاش کنید.");
     }
 
-    const body = await req.json().catch(() => null);
-    const rawPhone = String(body?.phone ?? "").trim();
-    const password = String(body?.password ?? "");
+    const parsed = await readJsonBody<Record<string, unknown>>(req, 4 * 1024);
+    if (!parsed.ok) return parsed.response;
 
+    const rawPhone = String(parsed.data?.phone ?? "").trim();
+    const password = String(parsed.data?.password ?? "");
     const phone = normalizeIranianPhone(rawPhone);
 
-    if (!isValidIranianPhone(phone) || !password) {
+    const accountLimit = await rateLimit(
+      `login:account:${phone || "invalid"}`,
+      10,
+      15 * 60_000
+    );
+    if (!accountLimit.success) {
+      return rateLimitError(accountLimit, "تلاش‌های بیش از حد. کمی بعد تلاش کنید.");
+    }
+
+    if (!isValidIranianPhone(phone) || !password || password.length > 128) {
+      if (password && password.length <= 128) {
+        await verifyPassword(password, DUMMY_PASSWORD_HASH);
+      }
       return jsonError("شماره موبایل یا گذرواژه نادرست است.", 401);
     }
 
-    // Prevent DoS via extremely long passwords
-    if (password.length > 128) {
+    const user = await db.user.findUnique({ where: { phone } });
+    const passwordMatches = await verifyPassword(
+      password,
+      user?.password || DUMMY_PASSWORD_HASH
+    );
+
+    if (!user || !passwordMatches) {
       return jsonError("شماره موبایل یا گذرواژه نادرست است.", 401);
     }
 
-    const user = await db.user.findFirst({ where: { phone } });
-    if (!user) {
-      // Always run verifyPassword with a dummy hash to prevent timing attacks
-      verifyPassword(
-        password,
-        "00000000000000000000000000000000:00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-      );
-      return jsonError("شماره موبایل یا گذرواژه نادرست است.", 401);
-    }
-
-    if (!verifyPassword(password, user.password)) {
-      return jsonError("شماره موبایل یا گذرواژه نادرست است.", 401);
-    }
-
-    await createSession(user.id, user.role);
+    await createSession(user.id);
 
     return jsonOk({
       user: {
@@ -57,7 +66,7 @@ export async function POST(req: NextRequest) {
         role: user.role as "ADMIN" | "CUSTOMER",
       },
     });
-  } catch (err) {
-    return handleApiError(err);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
