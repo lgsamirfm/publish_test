@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, FileText, Download, Info, Sparkles } from "lucide-react";
+import { ChevronLeft, FileText, Download, Info, Sparkles, CheckCircle2, Eye } from "lucide-react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { getOwnedPatternIds } from "@/lib/ownership";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Price } from "@/components/price";
 import { SectionHeading } from "@/components/section-heading";
 import { PatternGallery } from "@/components/pattern-gallery";
@@ -66,6 +69,13 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
     },
   })) as Pattern | null;
   if (!pattern) notFound();
+
+  // Which patterns has the logged-in user already purchased? (paid orders only)
+  const session = await getSession();
+  const ownedIds = session ? await getOwnedPatternIds(session.id) : [];
+  const owned = ownedIds.includes(pattern.id);
+
+
 
   const images = pattern.images
     ? pattern.images.split(",").map((s) => s.trim()).filter(Boolean)
@@ -183,14 +193,32 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
 
           {/* Buy */}
           <div className="flex flex-col gap-3">
-            <BuyPatternButton
-              pattern={{
-                id: pattern.id,
-                title: pattern.title,
-                price: pattern.price,
-                images: pattern.images,
-              }}
-            />
+            {owned ? (
+              <>
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm leading-6 text-foreground">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                  <p>
+                    شما این الگو را قبلاً خریده‌اید. از بخش «الگوهای
+                    خریداری‌شده» در حساب کاربری خود می‌توانید آن را مشاهده کنید.
+                  </p>
+                </div>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/account">
+                    <Eye className="size-4" />
+                    مشاهده در حساب کاربری
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <BuyPatternButton
+                pattern={{
+                  id: pattern.id,
+                  title: pattern.title,
+                  price: pattern.price,
+                  images: pattern.images,
+                }}
+              />
+            )}
             <div className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs leading-6 text-foreground">
               <Download className="mt-0.5 size-4 shrink-0 text-primary" />
               <p>
@@ -212,7 +240,7 @@ export default async function PatternDetailPage({ params }: { params: Params }) 
           />
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((p) => (
-              <PatternCard key={p.id} pattern={p} />
+              <PatternCard key={p.id} pattern={p} owned={ownedIds.includes(p.id)} />
             ))}
           </div>
         </section>

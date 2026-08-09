@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { FileText, Info, ChevronLeft, SearchX } from "lucide-react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { getOwnedPatternIds } from "@/lib/ownership";
 import { SectionHeading } from "@/components/section-heading";
 import { PatternCard } from "@/components/pattern-card";
 import { PatternFilters } from "@/components/pattern-filters";
@@ -56,6 +58,10 @@ export default async function PatternsPage({ searchParams }: { searchParams: Sea
       // pdfUrl intentionally excluded — security risk
     },
   })) as Pattern[];
+
+  // Which patterns has the logged-in user already purchased? (paid orders only)
+  const session = await getSession();
+  const ownedIds = session ? await getOwnedPatternIds(session.id) : [];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -117,7 +123,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Sea
       {patterns.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {patterns.map((p) => (
-            <PatternCard key={p.id} pattern={p} />
+            <PatternCard key={p.id} pattern={p} owned={ownedIds.includes(p.id)} />
           ))}
         </div>
       ) : (

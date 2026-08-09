@@ -177,7 +177,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                     )}
                   >
                     <div className="absolute -top-3 right-0 h-3 w-full" />
-                    <div className="min-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-xl">
+                      <div className="min-w-[440px] max-w-[92vw] overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-xl">
                       <div className="p-1">
                         <Link
                           href="/products"
@@ -196,7 +196,7 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                       <div className="my-1 h-px bg-border/60" />
                       <div className="px-1 py-1">
                         <p className="px-3 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground">دسته‌بندی‌ها</p>
-                        <div className="grid gap-1">
+                        <div className="grid grid-cols-3 gap-1.5">
                           {PRODUCT_CATEGORIES.map(({ value, label, image }) => {
                             const activeCat = currentCategory === value && pathname.startsWith("/products");
                             return (
@@ -205,19 +205,16 @@ export function SiteHeader({ initialUser }: { initialUser?: SessionUser | null }
                                 href={`/products?category=${encodeURIComponent(value)}`}
                                 onClick={() => setProductsOpen(false)}
                                 className={cn(
-                                  "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                                   "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                                   activeCat
                                     ? "bg-accent text-accent-foreground"
                                     : "text-foreground hover:bg-accent/70 hover:text-accent-foreground"
                                 )}
                               >
-                                <span className="flex items-center gap-2.5">
-                                  <span className="size-9 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-card">
-                                    <img src={image} alt={label} className="h-full w-full object-cover" loading="lazy" />
-                                  </span>
-                                  {label}
+                                <span className="size-9 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-card">
+                                  <img src={image} alt={label} className="h-full w-full object-cover" loading="lazy" />
                                 </span>
-                                <ChevronLeft className="size-3.5 opacity-40" />
+                                {label}
                               </Link>
                             );
                           })}

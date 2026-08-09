@@ -13,6 +13,8 @@ import {
 
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { getOwnedPatternIds } from "@/lib/ownership";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +90,10 @@ export default async function HomePage() {
       },
     }),
   ]);
+
+  // Which patterns has the logged-in user already purchased? (paid orders only)
+  const session = await getSession();
+  const ownedIds = session ? await getOwnedPatternIds(session.id) : [];
 
   return (
     <div className="flex flex-col">
@@ -210,7 +216,7 @@ export default async function HomePage() {
           >
             {featuredPatterns.length > 0 ? (
               featuredPatterns.map((p) => (
-                <PatternCard key={p.id} pattern={p as Pattern} />
+                <PatternCard key={p.id} pattern={p as Pattern} owned={ownedIds.includes(p.id)} />
               ))
             ) : (
               <EmptyState

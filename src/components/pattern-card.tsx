@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingCart, FileText } from "lucide-react";
+import { FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ const DIFFICULTY_VARIANT: Record<string, "default" | "secondary" | "destructive"
   پیشرفته: "destructive",
 };
 
-export function PatternCard({ pattern }: { pattern: Pattern }) {
+export function PatternCard({ pattern, owned = false }: { pattern: Pattern; owned?: boolean }) {
   const add = useCart((s) => s.add);
   const image = pattern.images?.split(",")[0] || "";
 
@@ -66,22 +66,34 @@ export function PatternCard({ pattern }: { pattern: Pattern }) {
         )}
         <div className="mt-2 flex items-center justify-between gap-2">
           <Price value={pattern.price} className="text-xs sm:text-base" />
-          <Button
-            size="sm"
-            onClick={() => {
-              add({
-                type: "PATTERN",
-                id: pattern.id,
-                name: pattern.title,
-                price: pattern.price,
-                image,
-              });
-              toast.success("الگو به سبد خرید اضافه شد");
-            }}
-          >
-            <FileText className="size-4" />
-            خرید الگو
-          </Button>
+          {owned ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled
+              className="cursor-not-allowed opacity-70"
+            >
+              <CheckCircle2 className="size-4" />
+              خریداری شده
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => {
+                add({
+                  type: "PATTERN",
+                  id: pattern.id,
+                  name: pattern.title,
+                  price: pattern.price,
+                  image,
+                });
+                toast.success("الگو به سبد خرید اضافه شد");
+              }}
+            >
+              <FileText className="size-4" />
+              خرید الگو
+            </Button>
+          )}
         </div>
       </div>
     </Card>
