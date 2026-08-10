@@ -2,9 +2,21 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { normalizeIranianPhone, isValidIranianPhone } from "@/lib/format";
+import { rateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/api";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 5 attempts / minute per IP (OTP brute-force protection).
+    const ip = await getClientIp();
+    const rl = await rateLimit("forgot-password-" + ip, 5, 60_000);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "تلاش‌های بیش از حد. یک دقیقه بعد تلاش کنید." },
+        { status: 429 }
+      );
+    }
+
     const { phone: rawPhone } = await req.json().catch(() => ({}));
     const phone = normalizeIranianPhone(String(rawPhone ?? ""));
 
